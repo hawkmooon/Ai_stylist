@@ -7,7 +7,7 @@ import sys
 import threading
 import base64
 
-API_KEY = os.environ.get("ANTHROPIC_API_KEY")
+API_KEY = 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
 PORT = int(os.environ.get("PORT", 8765))
 MAX_TOKENS_LIMIT = 2000
 

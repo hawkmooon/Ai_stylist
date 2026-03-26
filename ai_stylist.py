@@ -7,7 +7,7 @@ import sys
 import time
 import threading
 
-API_KEY = os.environ.get("ANTHROPIC_API_KEY", "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")
+API_KEY = os.environ.get("ANTHROPIC_API_KEY")
 PORT = int(os.environ.get("PORT", 8765))
 ALLOWED_MODELS = {"claude-sonnet-4-5", "claude-haiku-4-5-20251001", "claude-sonnet-4-5-20241022"}
 MAX_TOKENS_LIMIT = 2000

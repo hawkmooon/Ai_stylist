@@ -7,9 +7,25 @@ import sys
 import threading
 import base64
 
-API_KEY = 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
+API_KEY = os.environ.get("ANTHROPIC_API_KEY", "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")
 PORT = int(os.environ.get("PORT", 8765))
 MAX_TOKENS_LIMIT = 2000
+
+def resize_image_b64(b64_data, max_size=800):
+    """Resize base64 image to reduce size for API"""
+    try:
+        import struct, zlib
+        # Try to resize using basic approach - limit to 800px
+        # Decode and re-encode with quality reduction
+        img_data = base64.b64decode(b64_data)
+        # If image is small enough, return as is
+        if len(img_data) < 500000:  # Less than 500KB
+            return b64_data
+        # For large images, we'll just truncate quality hint
+        # Real resize needs PIL - return original and let API handle
+        return b64_data
+    except:
+        return b64_data
 
 FIREBASE_CONFIG = {
     "apiKey": "AIzaSyBeE62ZcocMTDNIfeKFyfDDNr_evWon_9w",
@@ -35,10 +51,23 @@ body{background:#faf7f4;font-family:'Cormorant Garamond',Georgia,serif;color:#2c
 @keyframes fadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
 @keyframes pulse{0%,100%{opacity:.4}50%{opacity:1}}
 @keyframes spin{to{transform:rotate(360deg)}}
-@keyframes slideOut{from{transform:translateX(0);opacity:1}to{transform:translateX(120%);opacity:0}}
-@keyframes slideIn{from{transform:translateX(-120%);opacity:0}to{transform:translateX(0);opacity:1}}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+@keyframes doorOpen{0%{transform:perspective(400px) rotateY(0deg);opacity:1}100%{transform:perspective(400px) rotateY(-100deg);opacity:0.3}}
+@keyframes clothFlyIn{0%{opacity:0;transform:translateY(80px) scale(0.3)}70%{transform:translateY(-8px) scale(1.05)}100%{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes hangSwing{0%,100%{transform:rotate(-4deg) translateX(0)}50%{transform:rotate(4deg) translateX(0)}}
 .fade-up{animation:fadeUp .45s ease forwards;}
+.cloth-fly-in{animation:clothFlyIn 0.7s cubic-bezier(0.34,1.56,0.64,1) forwards;}
+.hang-swing{animation:hangSwing 0.6s ease-in-out 2;}
+
+/* WARDROBE DOOR */
+.wardrobe-door-overlay{
+  position:absolute;inset:0;background:linear-gradient(135deg,#5c3d2e,#3d2b1f);
+  border-radius:20px;z-index:10;transform-origin:left center;
+  display:flex;align-items:center;justify-content:center;
+  transition:transform 0.6s ease;pointer-events:none;
+}
+.wardrobe-door-overlay.open{animation:doorOpen 0.6s ease forwards;}
+.door-handle{width:8px;height:40px;background:#c4a035;border-radius:4px;margin-left:40px;box-shadow:0 2px 8px rgba(0,0,0,.4);}
 
 /* AUTH SCREEN */
 #auth-screen{
@@ -129,16 +158,15 @@ body{background:#faf7f4;font-family:'Cormorant Garamond',Georgia,serif;color:#2c
 .clothes-rail::-webkit-scrollbar{height:3px;}
 .clothes-rail::-webkit-scrollbar-thumb{background:#c4a882;border-radius:2px;}
 .hanger-item{
-  flex-shrink:0;width:90px;cursor:pointer;text-align:center;position:relative;
-  transition:transform .3s;
+  flex-shrink:0;width:76px;cursor:pointer;text-align:center;position:relative;
+  transition:transform .3s;display:flex;flex-direction:column;align-items:center;
 }
-.hanger-item:hover{transform:translateY(-4px);}
-.hanger-top{font-size:16px;display:block;}
-.hanger-img{
-  width:80px;height:100px;object-fit:cover;border-radius:8px;
-  border:2px solid rgba(255,255,255,.2);box-shadow:0 4px 12px rgba(0,0,0,.4);
-}
-.hanger-label{font-size:9px;color:#faf7f4;margin-top:4px;line-height:1.2;opacity:.8;}
+.hanger-item:hover{transform:translateY(-6px) scale(1.05);}
+.hanger-hook{font-size:16px;display:block;margin-bottom:-2px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));}
+.hanger-bar{width:56px;height:3px;background:linear-gradient(90deg,#8b6914,#c4a035,#8b6914);border-radius:2px;margin-bottom:0px;box-shadow:0 2px 4px rgba(0,0,0,.3);}
+.hanger-svg{width:70px;height:86px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.4));}
+.hanger-svg svg{width:100%;height:100%;}
+.hanger-label{font-size:9px;color:#e8d5b0;margin-top:4px;line-height:1.2;opacity:.9;max-width:74px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .wardrobe-floor{
   height:12px;background:linear-gradient(180deg,#8b6914,#5c4510);
   border-radius:0 0 8px 8px;margin-top:8px;
@@ -303,7 +331,10 @@ body{background:#faf7f4;font-family:'Cormorant Garamond',Georgia,serif;color:#2c
   <div class="container">
     <!-- WARDROBE SCREEN -->
     <div class="screen active fade-up" id="screen-wardrobe">
-      <div class="wardrobe-bg">
+      <div class="wardrobe-bg" id="wardrobe-bg">
+        <div class="wardrobe-door-overlay" id="wardrobe-door">
+          <div class="door-handle"></div>
+        </div>
         <div class="wardrobe-rail"></div>
         <div class="clothes-rail" id="clothes-rail">
           <div class="wardrobe-empty" id="wardrobe-empty">
@@ -461,6 +492,24 @@ function showToast(emoji, msg) {
   setTimeout(() => t.remove(), 3500);
 }
 
+function resizeImage(dataUrl, maxPx) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.width, h = img.height;
+      if (w > maxPx || h > maxPx) {
+        if (w > h) { h = Math.round(h * maxPx / w); w = maxPx; }
+        else { w = Math.round(w * maxPx / h); h = maxPx; }
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
+    };
+    img.src = dataUrl;
+  });
+}
+
 window.signInWithGoogle = async () => {
   const provider = new GoogleAuthProvider();
   try {
@@ -561,6 +610,109 @@ async function loadClothes() {
   document.getElementById('stat-likes').textContent = userDoc.data()?.likeCount || 0;
 }
 
+function getClothSVG(category, color, label) {
+  const c = color || '#888';
+  const darker = shadeColor(c, -30);
+  const lighter = shadeColor(c, 30);
+  
+  if (category === 'alt' || label?.includes('pantolon') || label?.includes('jean') || label?.includes('şort') || label?.includes('etek')) {
+    // Pantolon / alt giyim
+    if (label?.includes('etek')) {
+      return `<svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg">
+        <rect x="28" y="0" width="24" height="8" rx="3" fill="${darker}"/>
+        <polygon points="20,8 60,8 72,95 8,95" fill="${c}"/>
+        <line x1="40" y1="8" x2="40" y2="95" stroke="${darker}" stroke-width="1" opacity="0.3"/>
+        <rect x="18" y="8" width="44" height="4" rx="2" fill="${darker}"/>
+      </svg>`;
+    }
+    return `<svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg">
+      <rect x="28" y="0" width="24" height="6" rx="3" fill="${darker}"/>
+      <rect x="18" y="6" width="44" height="5" rx="2" fill="${darker}"/>
+      <path d="M18,11 L8,95 L38,95 L40,50 L42,95 L72,95 L62,11 Z" fill="${c}"/>
+      <line x1="40" y1="11" x2="38" y2="95" stroke="${darker}" stroke-width="1.5" opacity="0.4"/>
+    </svg>`;
+  }
+  
+  if (category === 'ayak' || label?.includes('ayakkabı') || label?.includes('bot') || label?.includes('sneaker')) {
+    return `<svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg">
+      <rect x="28" y="0" width="24" height="6" rx="3" fill="${darker}"/>
+      <ellipse cx="40" cy="65" rx="30" ry="18" fill="${c}"/>
+      <ellipse cx="40" cy="58" rx="22" ry="14" fill="${lighter}"/>
+      <rect x="10" y="75" width="60" height="12" rx="6" fill="${darker}"/>
+      <ellipse cx="55" cy="52" rx="12" ry="8" fill="${lighter}" opacity="0.6"/>
+    </svg>`;
+  }
+  
+  if (label?.includes('çorap') || label?.includes('tayt')) {
+    return `<svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg">
+      <rect x="28" y="0" width="24" height="6" rx="3" fill="${darker}"/>
+      <rect x="25" y="6" width="30" height="55" rx="5" fill="${c}"/>
+      <ellipse cx="40" cy="65" rx="20" ry="10" fill="${c}"/>
+      <rect x="20" y="70" width="40" height="20" rx="8" fill="${darker}"/>
+      <line x1="25" y1="20" x2="55" y2="20" stroke="${lighter}" stroke-width="2" opacity="0.5"/>
+      <line x1="25" y1="30" x2="55" y2="30" stroke="${lighter}" stroke-width="2" opacity="0.5"/>
+      <line x1="25" y1="40" x2="55" y2="40" stroke="${lighter}" stroke-width="2" opacity="0.5"/>
+    </svg>`;
+  }
+
+  // Üst giyim - gömlek/kazak/ceket
+  if (label?.includes('ceket') || label?.includes('mont') || label?.includes('kaban')) {
+    return `<svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg">
+      <rect x="33" y="0" width="14" height="6" rx="3" fill="${darker}"/>
+      <path d="M40,6 L55,18 L68,14 L72,30 L60,32 L60,95 L20,95 L20,32 L8,30 L12,14 L25,18 Z" fill="${c}"/>
+      <path d="M40,6 L40,95" stroke="${darker}" stroke-width="1.5" opacity="0.3"/>
+      <path d="M25,18 L20,32" stroke="${darker}" stroke-width="2"/>
+      <path d="M55,18 L60,32" stroke="${darker}" stroke-width="2"/>
+      <rect x="36" y="40" width="8" height="5" rx="2" fill="${darker}" opacity="0.5"/>
+      <rect x="36" y="52" width="8" height="5" rx="2" fill="${darker}" opacity="0.5"/>
+    </svg>`;
+  }
+  
+  // Default - gömlek/tişört
+  return `<svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg">
+    <rect x="33" y="0" width="14" height="6" rx="3" fill="${darker}"/>
+    <path d="M40,6 C37,6 34,8 32,12 L18,22 L12,14 L5,28 L20,34 L20,95 L60,95 L60,34 L75,28 L68,14 L62,22 L48,12 C46,8 43,6 40,6 Z" fill="${c}"/>
+    <path d="M32,12 Q40,20 48,12" fill="none" stroke="${darker}" stroke-width="1.5"/>
+  </svg>`;
+}
+
+function shadeColor(color, percent) {
+  try {
+    let R = parseInt(color.substring(1,3), 16);
+    let G = parseInt(color.substring(3,5), 16);
+    let B = parseInt(color.substring(5,7), 16);
+    R = Math.min(255, Math.max(0, R + percent));
+    G = Math.min(255, Math.max(0, G + percent));
+    B = Math.min(255, Math.max(0, B + percent));
+    return '#' + ((1<<24)+(R<<16)+(G<<8)+B).toString(16).slice(1);
+  } catch(e) { return color; }
+}
+
+function tagToColor(tags) {
+  const colorMap = {
+    'kırmızı': '#e53935', 'kirmizi': '#e53935', 'red': '#e53935',
+    'mavi': '#1e88e5', 'blue': '#1e88e5', 'lacivert': '#1a237e', 'navy': '#1a237e',
+    'yeşil': '#43a047', 'yesil': '#43a047', 'green': '#43a047', 'haki': '#827717',
+    'siyah': '#212121', 'black': '#212121',
+    'beyaz': '#f5f5f5', 'white': '#f5f5f5',
+    'gri': '#757575', 'grey': '#757575', 'gray': '#757575',
+    'bej': '#d4b896', 'bege': '#d4b896', 'krem': '#f0e6d3',
+    'sarı': '#fdd835', 'sari': '#fdd835', 'yellow': '#fdd835',
+    'turuncu': '#fb8c00', 'orange': '#fb8c00',
+    'mor': '#8e24aa', 'purple': '#8e24aa', 'lila': '#ab47bc',
+    'pembe': '#e91e8c', 'pink': '#e91e8c', 'pudra': '#f8bbd0',
+    'kahve': '#6d4c41', 'brown': '#6d4c41', 'camel': '#c19a6b',
+    'bordo': '#880e4f', 'burgundy': '#880e4f',
+  };
+  for (const tag of (tags || [])) {
+    const lower = tag.toLowerCase();
+    for (const [key, val] of Object.entries(colorMap)) {
+      if (lower.includes(key)) return val;
+    }
+  }
+  return '#8b7355';
+}
+
 function renderClothes() {
   const rail = document.getElementById('clothes-rail');
   const empty = document.getElementById('wardrobe-empty');
@@ -573,15 +725,20 @@ function renderClothes() {
   }
   
   empty.style.display = 'none';
-  rail.innerHTML = '';
+  Array.from(rail.children).forEach(c => {
+    if (c.id !== 'wardrobe-empty') c.remove();
+  });
   
   clothes.forEach((c, i) => {
+    const color = tagToColor(c.tags);
+    const svg = getClothSVG(c.category, color, c.label?.toLowerCase());
     const item = document.createElement('div');
     item.className = 'hanger-item';
     item.onclick = () => showClothDetail(i);
     item.innerHTML = `
-      <span class="hanger-top">🪝</span>
-      <img class="hanger-img" src="${c.imageData}" alt="${c.label}">
+      <span class="hanger-hook">🪝</span>
+      <div class="hanger-bar"></div>
+      <div class="hanger-svg">${svg}</div>
       <div class="hanger-label">${c.label}</div>
     `;
     rail.appendChild(item);
@@ -595,13 +752,16 @@ function updateCounts() {
 }
 
 window.handleClothes = async (files) => {
-  for (const file of files) {
+  const fileArray = Array.from(files);
+  for (let i = 0; i < fileArray.length; i++) {
+    const file = fileArray[i];
     document.getElementById('upload-loading').style.display = 'block';
     
     const reader = new FileReader();
     await new Promise(resolve => {
       reader.onload = async (e) => {
-        const base64 = e.target.result.split(',')[1];
+        // Resize image before sending
+        const base64 = await resizeImage(e.target.result, 800);
         
         try {
           const resp = await fetch('/analyze-cloth', {
@@ -615,6 +775,7 @@ window.handleClothes = async (files) => {
             id: Date.now() + Math.random(),
             imageData: e.target.result,
             label: data.label || 'Kıyafet',
+            category: data.category || 'üst',
             tags: data.tags || [],
             aiComment: data.comment || '',
             addedAt: new Date().toISOString()
@@ -622,18 +783,53 @@ window.handleClothes = async (files) => {
           
           clothes.push(cloth);
           
-          // Save to Firestore (without full image for size - just metadata)
-          const clothForDB = {...cloth, imageData: e.target.result};
-          await updateDoc(doc(db, 'users', currentUser.uid), {
-            clothes: arrayUnion(clothForDB)
-          });
+          // Door open animation
+          const door = document.getElementById('wardrobe-door');
+          if (door) {
+            door.classList.add('open');
+            setTimeout(() => {
+              door.classList.remove('open');
+              door.style.display = 'none';
+            }, 700);
+          }
           
           renderClothes();
           updateCounts();
           
-          // Random fun comment
+          // Animate last added item
+          setTimeout(() => {
+            const items = document.querySelectorAll('.hanger-item');
+            const lastItem = items[items.length - 1];
+            if (lastItem) {
+              lastItem.classList.add('cloth-fly-in');
+              setTimeout(() => lastItem.classList.add('hang-swing'), 700);
+            }
+          }, 100);
+          
+          // Save only metadata to Firestore (no image data - too large)
+          try {
+            const clothMeta = {
+              id: cloth.id,
+              label: cloth.label,
+              tags: cloth.tags,
+              aiComment: cloth.aiComment,
+              addedAt: cloth.addedAt
+            };
+            await setDoc(doc(db, 'users', currentUser.uid), {
+              clothesMeta: arrayUnion(clothMeta)
+            }, {merge: true});
+          } catch(fsErr) {
+            console.error("Firestore meta hata:", fsErr.message);
+          }
+          
+          // Show AI comment toast
           const pick = uploadComments[Math.floor(Math.random() * uploadComments.length)];
           setTimeout(() => showToast(pick[0], data.comment || pick[1]), 500);
+          
+          // Small delay between uploads to avoid Firestore conflicts
+          if (i < fileArray.length - 1) {
+            await new Promise(r => setTimeout(r, 500));
+          }
           
         } catch(err) {
           console.error(err);
@@ -851,7 +1047,9 @@ def send_response(conn, status, content_type, body):
         pass
 
 def call_anthropic(payload):
+    print("[DEBUG] Anthropic'e gonderiliyor, model:", payload.get("model","?"))
     data = json.dumps(payload).encode()
+    print("[DEBUG] Payload boyut:", len(data)//1024, "KB")
     req = urllib.request.Request(
         "https://api.anthropic.com/v1/messages",
         data=data,
@@ -864,17 +1062,28 @@ def call_anthropic(payload):
     )
     try:
         with urllib.request.urlopen(req, timeout=120) as resp:
-            return 200, resp.read().decode("utf-8", errors="replace")
+            result = resp.read().decode("utf-8", errors="replace")
+            print("[DEBUG] Anthropic cevap OK, boyut:", len(result)//1024, "KB")
+            return 200, result
     except urllib.error.HTTPError as e:
-        return e.code, e.read().decode("utf-8", errors="replace")
+        result = e.read().decode("utf-8", errors="replace")
+        print("[HATA] Anthropic HTTP", e.code, ":", result[:300])
+        return e.code, result
     except urllib.error.URLError as e:
+        print("[HATA] Anthropic URL:", str(e.reason))
         return 502, json.dumps({"error": str(e.reason)})
+    except Exception as e:
+        print("[HATA] Anthropic genel:", str(e))
+        return 500, json.dumps({"error": str(e)})
 
 def handle_analyze_cloth(body):
+    print("[DEBUG] analyze-cloth istegi alindi, boyut:", len(body) // 1024, "KB")
     try:
         data = json.loads(body)
         image_b64 = data.get("image", "")
-    except Exception:
+        print("[DEBUG] Image b64 boyut:", len(image_b64) // 1024, "KB")
+    except Exception as e:
+        print("[HATA] JSON parse:", e)
         return 400, json.dumps({"error": "Invalid JSON"})
 
     payload = {
@@ -889,13 +1098,24 @@ def handle_analyze_cloth(body):
                 },
                 {
                     "type": "text",
-                    "text": """Bu kıyafeti analiz et ve JSON olarak döndür:
+                    "text": """Bu kıyafeti çok dikkatli analiz et.
+
+ÖNEMLİ: Önce kıyafetin tam olarak ne olduğunu belirle:
+- Üst giyim: tişört, gömlek, bluz, kazak, hırka, ceket, mont, yelek
+- Alt giyim: pantolon, jean, etek, şort, tayt, eşofman altı
+- Ayak giyimi: ayakkabı, bot, sneaker, sandalet, terlik, ÇORAP
+- Aksesuar: kemer, çanta, şapka, eşarp, kravat
+- İç giyim: pijama, iç çamaşırı
+
+Eğer görsel uzun ve ince ise ÇORAP veya TAYT olabilir dikkatli bak.
+
+JSON formatında döndür (sadece JSON, başka hiçbir şey yazma):
 {
-  "label": "kısa etiket (örn: Kırmızı Gömlek)",
-  "tags": ["renk", "tür", "stil", "mevsim"],
-  "comment": "Bu kıyafet hakkında samimi, heyecanlı 1-2 cümle yorum (Türkçe)"
-}
-Sadece JSON döndür, başka şey yazma."""
+  "label": "Kısa ve net isim (örn: Kırmızı Gömlek, Siyah Pantolon, Beyaz Çorap)",
+  "category": "üst/alt/ayak/aksesuar/iç",
+  "tags": ["renk", "tür", "materyal", "stil", "mevsim"],
+  "comment": "Samimi ve heyecanlı 1-2 cümle yorum (Türkçe)"
+}"""
                 }
             ]
         }]
@@ -904,16 +1124,24 @@ Sadece JSON döndür, başka şey yazma."""
     if status == 200:
         try:
             resp_data = json.loads(result)
+            print("[DEBUG] Anthropic ham cevap:", result[:300])
             text = resp_data["content"][0]["text"]
             text = text.strip()
-            if text.startswith("```"):
-                text = text.split("```")[1]
-                if text.startswith("json"):
-                    text = text[4:]
+            if "```" in text:
+                parts = text.split("```")
+                for p in parts:
+                    p = p.strip()
+                    if p.startswith("json"):
+                        p = p[4:].strip()
+                    if p.startswith("{"):
+                        text = p
+                        break
             parsed = json.loads(text.strip())
             return 200, json.dumps(parsed)
         except Exception as e:
-            return 200, json.dumps({"label": "Kıyafet", "tags": [], "comment": "Harika bir kıyafet!"})
+            print("[HATA] analyze parse:", e, "| result:", result[:200])
+            return 200, json.dumps({"label": "Kıyafet", "tags": ["kıyafet"], "comment": "Harika bir kıyafet!"})
+    print("[HATA] analyze status:", status, result[:200])
     return status, result
 
 def handle_analyze_body(body):

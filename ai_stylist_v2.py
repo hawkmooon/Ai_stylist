@@ -449,7 +449,7 @@ body{background:#faf7f4;font-family:'Cormorant Garamond',Georgia,serif;color:#2c
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut as fbSignOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, updateDoc, arrayUnion, increment, collection, addDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -513,7 +513,7 @@ function resizeImage(dataUrl, maxPx) {
 window.signInWithGoogle = async () => {
   const provider = new GoogleAuthProvider();
   try {
-    await signInWithRedirect(auth, provider);
+    await signInWithPopup(auth, provider);
   } catch(e) {
     alert('Giriş başarısız: ' + e.message);
   }
@@ -522,11 +522,6 @@ window.signInWithGoogle = async () => {
 window.signOut = async () => {
   await fbSignOut(auth);
 };
-
-// Handle redirect result
-getRedirectResult(auth).then(result => {
-  if (result && result.user) console.log("Redirect OK:", result.user.email);
-}).catch(e => { if (e.code !== "auth/no-auth-event") alert("Giriş başarısız: " + e.message); });
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {

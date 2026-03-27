@@ -524,7 +524,9 @@ window.signOut = async () => {
 };
 
 // Handle redirect result
-getRedirectResult(auth).catch(e => console.log('redirect err:', e));
+getRedirectResult(auth).then(result => {
+  if (result && result.user) console.log("Redirect OK:", result.user.email);
+}).catch(e => { if (e.code !== "auth/no-auth-event") alert("Giriş başarısız: " + e.message); });
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {

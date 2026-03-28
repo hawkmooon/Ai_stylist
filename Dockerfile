@@ -1,8 +1,6 @@
 FROM python:3.11-slim
 
-# Sistem bağımlılıkları (rembg için gerekli)
-RUN apt-get update --fix-missing && apt-get install -y --no-install-recommends \
-    libgl1-mesa-glx \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libglib2.0-0 \
     libgomp1 \
     && apt-get clean \
@@ -10,18 +8,15 @@ RUN apt-get update --fix-missing && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# Python paketleri
 RUN pip install --no-cache-dir \
     rembg \
     pillow \
     numpy \
     onnxruntime
 
-# Uygulama dosyaları
 COPY ai_stylist_v3.py .
 COPY hanger.png .
 
-# rembg modelini önceden indir (ilk istekte gecikme olmasın)
 RUN python -c "from rembg import remove; from PIL import Image; import io; \
     img = Image.new('RGB', (10,10), 'white'); \
     buf = io.BytesIO(); img.save(buf, 'JPEG'); \

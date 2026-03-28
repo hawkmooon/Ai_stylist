@@ -6,26 +6,102 @@ import os
 import sys
 import threading
 import base64
+import io
 
 API_KEY = os.environ.get("ANTHROPIC_API_KEY", "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")
 PORT = int(os.environ.get("PORT", 8765))
 MAX_TOKENS_LIMIT = 2000
 
-def resize_image_b64(b64_data, max_size=800):
-    """Resize base64 image to reduce size for API"""
+# ──────────────────────────────────────────────
+# HANGER IMAGE PROCESSING (rembg + Pillow)
+# ──────────────────────────────────────────────
+try:
+    from rembg import remove
+    from PIL import Image
+    REMBG_AVAILABLE = True
+    print("[INFO] rembg + Pillow aktif, gerçek askı görselleri kullanılacak.")
+except ImportError:
+    REMBG_AVAILABLE = False
+    print("[WARN] rembg veya Pillow yok, SVG moduna dönülüyor.")
+
+HANGER_PATH = os.path.join(os.path.dirname(__file__), "hanger.png")
+
+def process_cloth_with_hanger(image_b64, category="üst"):
+    """Kıyafetten arka planı sil, ahşap askıya bindir, base64 PNG döndür."""
+    if not REMBG_AVAILABLE:
+        return None
+
+    hanger_path = HANGER_PATH
+    if not os.path.exists(hanger_path):
+        print("[WARN] hanger.png bulunamadı:", hanger_path)
+        return None
+
     try:
-        import struct, zlib
-        # Try to resize using basic approach - limit to 800px
-        # Decode and re-encode with quality reduction
-        img_data = base64.b64decode(b64_data)
-        # If image is small enough, return as is
-        if len(img_data) < 500000:  # Less than 500KB
-            return b64_data
-        # For large images, we'll just truncate quality hint
-        # Real resize needs PIL - return original and let API handle
-        return b64_data
-    except:
-        return b64_data
+        # base64 → PIL Image
+        img_data = base64.b64decode(image_b64)
+        input_image = Image.open(io.BytesIO(img_data)).convert("RGBA")
+
+        # 1) Arka plan sil
+        cloth = remove(input_image)
+
+        # 2) Boşlukları temizle (crop)
+        bbox = cloth.getbbox()
+        if not bbox:
+            return None
+        cloth = cloth.crop(bbox)
+
+        # 3) Kategoriye göre boyutlandır
+        if category in ("üst", "aksesuar", "iç"):
+            cloth_size = (200, 200)
+        elif category == "alt":
+            cloth_size = (180, 220)
+        elif category == "ayak":
+            cloth_size = (200, 150)
+        else:
+            cloth_size = (200, 200)
+        cloth = cloth.resize(cloth_size, Image.LANCZOS)
+
+        # 4) Askıyı yükle
+        hanger = Image.open(hanger_path).convert("RGBA")
+
+        # 5) Canvas = askı boyutu
+        canvas = Image.new("RGBA", hanger.size, (0, 0, 0, 0))
+        canvas.paste(hanger, (0, 0), hanger)
+
+        # 6) Kategoriye göre Y offset
+        if category == "üst":
+            offset_y = int(hanger.size[1] * 0.38)
+        elif category == "alt":
+            offset_y = int(hanger.size[1] * 0.42)
+        elif category == "ayak":
+            offset_y = int(hanger.size[1] * 0.48)
+        else:
+            offset_y = int(hanger.size[1] * 0.40)
+
+        offset_x = (hanger.size[0] - cloth_size[0]) // 2
+
+        # 7) Gölge efekti
+        shadow = cloth.copy()
+        shadow_pixels = shadow.load()
+        w, h = shadow.size
+        for y in range(h):
+            for x in range(w):
+                r, g, b, a = shadow_pixels[x, y]
+                shadow_pixels[x, y] = (0, 0, 0, int(a * 0.22))
+        canvas.paste(shadow, (offset_x + 4, offset_y + 4), shadow)
+
+        # 8) Kıyafeti koy
+        canvas.paste(cloth, (offset_x, offset_y), cloth)
+
+        # 9) PNG → base64
+        buffer = io.BytesIO()
+        canvas.save(buffer, format="PNG", optimize=True)
+        return base64.b64encode(buffer.getvalue()).decode()
+
+    except Exception as e:
+        print("[HATA] process_cloth_with_hanger:", e)
+        return None
+
 
 FIREBASE_CONFIG = {
     "apiKey": "AIzaSyBeE62ZcocMTDNIfeKFyfDDNr_evWon_9w",
@@ -141,9 +217,7 @@ body{background:#faf7f4;font-family:'Cormorant Garamond',Georgia,serif;color:#2c
   border-radius:20px;padding:16px;margin-bottom:20px;position:relative;overflow:hidden;
   min-height:300px;
 }
-.wardrobe-top-bar{
-  display:flex;gap:8px;margin-bottom:16px;
-}
+.wardrobe-top-bar{display:flex;gap:8px;margin-bottom:16px;}
 .wardrobe-rail{
   background:linear-gradient(90deg,#8b6914,#c4a035,#8b6914);
   height:8px;border-radius:4px;margin-bottom:16px;position:relative;box-shadow:0 2px 8px rgba(0,0,0,.4);
@@ -158,15 +232,18 @@ body{background:#faf7f4;font-family:'Cormorant Garamond',Georgia,serif;color:#2c
 .clothes-rail::-webkit-scrollbar{height:3px;}
 .clothes-rail::-webkit-scrollbar-thumb{background:#c4a882;border-radius:2px;}
 .hanger-item{
-  flex-shrink:0;width:76px;cursor:pointer;text-align:center;position:relative;
+  flex-shrink:0;width:86px;cursor:pointer;text-align:center;position:relative;
   transition:transform .3s;display:flex;flex-direction:column;align-items:center;
 }
 .hanger-item:hover{transform:translateY(-6px) scale(1.05);}
 .hanger-hook{font-size:16px;display:block;margin-bottom:-2px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));}
-.hanger-bar{width:56px;height:3px;background:linear-gradient(90deg,#8b6914,#c4a035,#8b6914);border-radius:2px;margin-bottom:0px;box-shadow:0 2px 4px rgba(0,0,0,.3);}
+.hanger-bar{width:56px;height:3px;background:linear-gradient(90deg,#8b6914,#c4a035,#8b6914);border-radius:2px;box-shadow:0 2px 4px rgba(0,0,0,.3);}
+/* Gerçek görsel modu */
+.real-hanger{width:86px;height:100px;object-fit:contain;filter:drop-shadow(0 4px 8px rgba(0,0,0,.5));}
+/* SVG fallback */
 .hanger-svg{width:70px;height:86px;filter:drop-shadow(0 4px 8px rgba(0,0,0,.4));}
 .hanger-svg svg{width:100%;height:100%;}
-.hanger-label{font-size:9px;color:#e8d5b0;margin-top:4px;line-height:1.2;opacity:.9;max-width:74px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.hanger-label{font-size:9px;color:#e8d5b0;margin-top:4px;line-height:1.2;opacity:.9;max-width:84px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .wardrobe-floor{
   height:12px;background:linear-gradient(180deg,#8b6914,#5c4510);
   border-radius:0 0 8px 8px;margin-top:8px;
@@ -266,7 +343,6 @@ body{background:#faf7f4;font-family:'Cormorant Garamond',Georgia,serif;color:#2c
 .stat-num{font-family:'Playfair Display',serif;font-size:22px;color:#8b5a2b;}
 .stat-label{font-size:11px;color:#8b7355;letter-spacing:1px;}
 .logout-btn{width:100%;padding:12px;border:1px solid #d4c4b4;border-radius:12px;color:#8b7355;background:#fff;font-family:'Cormorant Garamond',serif;font-size:15px;cursor:pointer;margin-top:8px;}
-
 .error-box{background:#fff5f5;border:1px solid #f5c6c6;border-radius:14px;padding:14px;margin-bottom:14px;color:#c0392b;font-size:14px;}
 </style>
 </head>
@@ -293,14 +369,12 @@ body{background:#faf7f4;font-family:'Cormorant Garamond',Georgia,serif;color:#2c
 <div id="onboard-screen" style="display:none;">
   <h2 class="onboard-title">Seni Tanıyalım</h2>
   <p class="onboard-sub">Boy fotoğrafını çek, sana özel kombin yapalım</p>
-  
   <div class="body-upload-zone" onclick="document.getElementById('bodyInput').click()">
     <div style="font-size:48px;margin-bottom:10px;">🧍</div>
     <div style="font-size:16px;color:#8b7355;font-style:italic;">Boy fotoğrafı yükle</div>
     <div style="font-size:12px;color:#b0a090;margin-top:6px;">Baştan ayağa tam boy</div>
   </div>
   <input type="file" id="bodyInput" accept="image/*" style="display:none" onchange="handleBodyPhoto(this.files[0])">
-  
   <div id="body-preview-wrap" style="display:none;width:100%;max-width:360px;">
     <img id="body-preview-img" style="width:100%;border-radius:16px;margin-bottom:12px;">
     <div id="body-analysis-box" class="body-analysis" style="display:none;">
@@ -308,7 +382,6 @@ body{background:#faf7f4;font-family:'Cormorant Garamond',Georgia,serif;color:#2c
       <div id="body-analysis-content"></div>
     </div>
   </div>
-  
   <button class="start-btn" id="start-btn" onclick="finishOnboard()" disabled>
     Dolabıma Geç →
   </button>
@@ -344,13 +417,13 @@ body{background:#faf7f4;font-family:'Cormorant Garamond',Georgia,serif;color:#2c
         </div>
         <div class="wardrobe-floor"></div>
       </div>
-      
+
       <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
         <div class="upload-icon">📷</div>
         <div class="upload-text">Kıyafet fotoğrafı ekle</div>
       </div>
       <input type="file" id="fileInput" accept="image/*" multiple style="display:none" onchange="handleClothes(this.files)">
-      
+
       <div id="upload-loading" style="display:none;" class="loading">
         <div class="spinner"></div>
         <div class="loading-text">AI kıyafetini analiz ediyor...</div>
@@ -450,7 +523,7 @@ body{background:#faf7f4;font-family:'Cormorant Garamond',Georgia,serif;color:#2c
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
-import { getFirestore, doc, getDoc, setDoc, updateDoc, arrayUnion, increment, collection, addDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+import { getFirestore, doc, getDoc, setDoc, updateDoc, arrayUnion, increment } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBeE62ZcocMTDNIfeKFyfDDNr_evWon_9w",
@@ -472,7 +545,6 @@ let selectedEvent = '';
 let currentDetailIndex = -1;
 let lastSuggestion = '';
 
-// AI TOAST COMMENTS
 const uploadComments = [
   ["✨", "Vay be! Bu renk sana çok yakışacak!"],
   ["😍", "Harika bir seçim! Çok şık duruyor."],
@@ -510,25 +582,19 @@ function resizeImage(dataUrl, maxPx) {
   });
 }
 
+// ── AUTH ──
 window.signInWithGoogle = async () => {
   const provider = new GoogleAuthProvider();
-  try {
-    await signInWithPopup(auth, provider);
-  } catch(e) {
-    alert('Giriş başarısız: ' + e.message);
-  }
+  try { await signInWithPopup(auth, provider); }
+  catch(e) { alert('Giriş başarısız: ' + e.message); }
 };
 
-window.signOut = async () => {
-  await fbSignOut(auth);
-};
+window.signOut = async () => { await fbSignOut(auth); };
 
 onAuthStateChanged(auth, async (user) => {
   if (user) {
     currentUser = user;
     document.getElementById('auth-screen').style.display = 'none';
-    
-    // Set avatar
     if (user.photoURL) {
       document.getElementById('user-avatar').src = user.photoURL;
       document.getElementById('user-avatar').style.display = 'block';
@@ -536,8 +602,6 @@ onAuthStateChanged(auth, async (user) => {
     }
     document.getElementById('profile-name').textContent = user.displayName || 'Kullanıcı';
     document.getElementById('profile-email').textContent = user.email;
-
-    // Check if onboarded
     const userDoc = await getDoc(doc(db, 'users', user.uid));
     if (!userDoc.exists() || !userDoc.data().onboarded) {
       document.getElementById('onboard-screen').style.display = 'flex';
@@ -553,19 +617,17 @@ onAuthStateChanged(auth, async (user) => {
   }
 });
 
+// ── ONBOARD ──
 window.handleBodyPhoto = async (file) => {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = async (e) => {
     document.getElementById('body-preview-img').src = e.target.result;
     document.getElementById('body-preview-wrap').style.display = 'block';
-    
-    // Analyze body
     const base64 = e.target.result.split(',')[1];
     try {
       const resp = await fetch('/analyze-body', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
+        method: 'POST', headers: {'Content-Type':'application/json'},
         body: JSON.stringify({image: base64})
       });
       const data = await resp.json();
@@ -573,7 +635,6 @@ window.handleBodyPhoto = async (file) => {
         document.getElementById('body-analysis-box').style.display = 'block';
         document.getElementById('body-analysis-content').innerHTML = data.analysis;
         window._bodyAnalysis = data.analysis;
-        window._bodyImage = base64;
       }
     } catch(e) {}
     document.getElementById('start-btn').disabled = false;
@@ -587,36 +648,32 @@ window.finishOnboard = async () => {
     displayName: currentUser.displayName,
     email: currentUser.email,
     bodyAnalysis: window._bodyAnalysis || '',
-    comboCount: 0,
-    likeCount: 0,
+    comboCount: 0, likeCount: 0,
     createdAt: new Date().toISOString()
   }, {merge: true});
-  
   document.getElementById('onboard-screen').style.display = 'none';
   document.getElementById('main-app').style.display = 'block';
   await loadClothes();
   showToast('👗', 'Dolabına hoş geldin! Kıyafetlerini eklemeye başla.');
 };
 
+// ── WARDROBE ──
 async function loadClothes() {
   const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
   clothes = userDoc.data()?.clothes || [];
   renderClothes();
   updateCounts();
-  
-  // Update profile stats
   document.getElementById('stat-clothes').textContent = clothes.length;
   document.getElementById('stat-combos').textContent = userDoc.data()?.comboCount || 0;
   document.getElementById('stat-likes').textContent = userDoc.data()?.likeCount || 0;
 }
 
+// SVG fallback (rembg yoksa veya hanger_image gelmediyse)
 function getClothSVG(category, color, label) {
   const c = color || '#888';
   const darker = shadeColor(c, -30);
   const lighter = shadeColor(c, 30);
-  
   if (category === 'alt' || label?.includes('pantolon') || label?.includes('jean') || label?.includes('şort') || label?.includes('etek')) {
-    // Pantolon / alt giyim
     if (label?.includes('etek')) {
       return `<svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg">
         <rect x="28" y="0" width="24" height="8" rx="3" fill="${darker}"/>
@@ -632,7 +689,6 @@ function getClothSVG(category, color, label) {
       <line x1="40" y1="11" x2="38" y2="95" stroke="${darker}" stroke-width="1.5" opacity="0.4"/>
     </svg>`;
   }
-  
   if (category === 'ayak' || label?.includes('ayakkabı') || label?.includes('bot') || label?.includes('sneaker')) {
     return `<svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg">
       <rect x="28" y="0" width="24" height="6" rx="3" fill="${darker}"/>
@@ -642,33 +698,21 @@ function getClothSVG(category, color, label) {
       <ellipse cx="55" cy="52" rx="12" ry="8" fill="${lighter}" opacity="0.6"/>
     </svg>`;
   }
-  
   if (label?.includes('çorap') || label?.includes('tayt')) {
     return `<svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg">
       <rect x="28" y="0" width="24" height="6" rx="3" fill="${darker}"/>
       <rect x="25" y="6" width="30" height="55" rx="5" fill="${c}"/>
       <ellipse cx="40" cy="65" rx="20" ry="10" fill="${c}"/>
       <rect x="20" y="70" width="40" height="20" rx="8" fill="${darker}"/>
-      <line x1="25" y1="20" x2="55" y2="20" stroke="${lighter}" stroke-width="2" opacity="0.5"/>
-      <line x1="25" y1="30" x2="55" y2="30" stroke="${lighter}" stroke-width="2" opacity="0.5"/>
-      <line x1="25" y1="40" x2="55" y2="40" stroke="${lighter}" stroke-width="2" opacity="0.5"/>
     </svg>`;
   }
-
-  // Üst giyim - gömlek/kazak/ceket
   if (label?.includes('ceket') || label?.includes('mont') || label?.includes('kaban')) {
     return `<svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg">
       <rect x="33" y="0" width="14" height="6" rx="3" fill="${darker}"/>
       <path d="M40,6 L55,18 L68,14 L72,30 L60,32 L60,95 L20,95 L20,32 L8,30 L12,14 L25,18 Z" fill="${c}"/>
       <path d="M40,6 L40,95" stroke="${darker}" stroke-width="1.5" opacity="0.3"/>
-      <path d="M25,18 L20,32" stroke="${darker}" stroke-width="2"/>
-      <path d="M55,18 L60,32" stroke="${darker}" stroke-width="2"/>
-      <rect x="36" y="40" width="8" height="5" rx="2" fill="${darker}" opacity="0.5"/>
-      <rect x="36" y="52" width="8" height="5" rx="2" fill="${darker}" opacity="0.5"/>
     </svg>`;
   }
-  
-  // Default - gömlek/tişört
   return `<svg viewBox="0 0 80 100" xmlns="http://www.w3.org/2000/svg">
     <rect x="33" y="0" width="14" height="6" rx="3" fill="${darker}"/>
     <path d="M40,6 C37,6 34,8 32,12 L18,22 L12,14 L5,28 L20,34 L20,95 L60,95 L60,34 L75,28 L68,14 L62,22 L48,12 C46,8 43,6 40,6 Z" fill="${c}"/>
@@ -678,33 +722,33 @@ function getClothSVG(category, color, label) {
 
 function shadeColor(color, percent) {
   try {
-    let R = parseInt(color.substring(1,3), 16);
-    let G = parseInt(color.substring(3,5), 16);
-    let B = parseInt(color.substring(5,7), 16);
-    R = Math.min(255, Math.max(0, R + percent));
-    G = Math.min(255, Math.max(0, G + percent));
-    B = Math.min(255, Math.max(0, B + percent));
-    return '#' + ((1<<24)+(R<<16)+(G<<8)+B).toString(16).slice(1);
+    let R = parseInt(color.substring(1,3),16);
+    let G = parseInt(color.substring(3,5),16);
+    let B = parseInt(color.substring(5,7),16);
+    R = Math.min(255, Math.max(0, R+percent));
+    G = Math.min(255, Math.max(0, G+percent));
+    B = Math.min(255, Math.max(0, B+percent));
+    return '#'+((1<<24)+(R<<16)+(G<<8)+B).toString(16).slice(1);
   } catch(e) { return color; }
 }
 
 function tagToColor(tags) {
   const colorMap = {
-    'kırmızı': '#e53935', 'kirmizi': '#e53935', 'red': '#e53935',
-    'mavi': '#1e88e5', 'blue': '#1e88e5', 'lacivert': '#1a237e', 'navy': '#1a237e',
-    'yeşil': '#43a047', 'yesil': '#43a047', 'green': '#43a047', 'haki': '#827717',
-    'siyah': '#212121', 'black': '#212121',
-    'beyaz': '#f5f5f5', 'white': '#f5f5f5',
-    'gri': '#757575', 'grey': '#757575', 'gray': '#757575',
-    'bej': '#d4b896', 'bege': '#d4b896', 'krem': '#f0e6d3',
-    'sarı': '#fdd835', 'sari': '#fdd835', 'yellow': '#fdd835',
-    'turuncu': '#fb8c00', 'orange': '#fb8c00',
-    'mor': '#8e24aa', 'purple': '#8e24aa', 'lila': '#ab47bc',
-    'pembe': '#e91e8c', 'pink': '#e91e8c', 'pudra': '#f8bbd0',
-    'kahve': '#6d4c41', 'brown': '#6d4c41', 'camel': '#c19a6b',
-    'bordo': '#880e4f', 'burgundy': '#880e4f',
+    'kırmızı':'#e53935','kirmizi':'#e53935','red':'#e53935',
+    'mavi':'#1e88e5','blue':'#1e88e5','lacivert':'#1a237e','navy':'#1a237e',
+    'yeşil':'#43a047','yesil':'#43a047','green':'#43a047','haki':'#827717',
+    'siyah':'#212121','black':'#212121',
+    'beyaz':'#f5f5f5','white':'#f5f5f5',
+    'gri':'#757575','grey':'#757575','gray':'#757575',
+    'bej':'#d4b896','bege':'#d4b896','krem':'#f0e6d3',
+    'sarı':'#fdd835','sari':'#fdd835','yellow':'#fdd835',
+    'turuncu':'#fb8c00','orange':'#fb8c00',
+    'mor':'#8e24aa','purple':'#8e24aa','lila':'#ab47bc',
+    'pembe':'#e91e8c','pink':'#e91e8c','pudra':'#f8bbd0',
+    'kahve':'#6d4c41','brown':'#6d4c41','camel':'#c19a6b',
+    'bordo':'#880e4f','burgundy':'#880e4f',
   };
-  for (const tag of (tags || [])) {
+  for (const tag of (tags||[])) {
     const lower = tag.toLowerCase();
     for (const [key, val] of Object.entries(colorMap)) {
       if (lower.includes(key)) return val;
@@ -716,31 +760,36 @@ function tagToColor(tags) {
 function renderClothes() {
   const rail = document.getElementById('clothes-rail');
   const empty = document.getElementById('wardrobe-empty');
-  
   if (clothes.length === 0) {
     rail.innerHTML = '';
     rail.appendChild(empty);
     empty.style.display = 'block';
     return;
   }
-  
   empty.style.display = 'none';
-  Array.from(rail.children).forEach(c => {
-    if (c.id !== 'wardrobe-empty') c.remove();
-  });
-  
+  Array.from(rail.children).forEach(c => { if (c.id !== 'wardrobe-empty') c.remove(); });
+
   clothes.forEach((c, i) => {
-    const color = tagToColor(c.tags);
-    const svg = getClothSVG(c.category, color, c.label?.toLowerCase());
     const item = document.createElement('div');
     item.className = 'hanger-item';
     item.onclick = () => showClothDetail(i);
-    item.innerHTML = `
-      <span class="hanger-hook">🪝</span>
-      <div class="hanger-bar"></div>
-      <div class="hanger-svg">${svg}</div>
-      <div class="hanger-label">${c.label}</div>
-    `;
+
+    // ── Gerçek askı görseli varsa kullan, yoksa SVG fallback ──
+    if (c.hanger_image) {
+      item.innerHTML = `
+        <img src="data:image/png;base64,${c.hanger_image}" class="real-hanger" alt="${c.label}">
+        <div class="hanger-label">${c.label}</div>
+      `;
+    } else {
+      const color = tagToColor(c.tags);
+      const svg = getClothSVG(c.category, color, c.label?.toLowerCase());
+      item.innerHTML = `
+        <span class="hanger-hook">🪝</span>
+        <div class="hanger-bar"></div>
+        <div class="hanger-svg">${svg}</div>
+        <div class="hanger-label">${c.label}</div>
+      `;
+    }
     rail.appendChild(item);
   });
 }
@@ -751,52 +800,47 @@ function updateCounts() {
   document.getElementById('stat-clothes').textContent = clothes.length;
 }
 
+// ── UPLOAD ──
 window.handleClothes = async (files) => {
   const fileArray = Array.from(files);
   for (let i = 0; i < fileArray.length; i++) {
     const file = fileArray[i];
     document.getElementById('upload-loading').style.display = 'block';
-    
     const reader = new FileReader();
     await new Promise(resolve => {
       reader.onload = async (e) => {
-        // Resize image before sending
         const base64 = await resizeImage(e.target.result, 800);
-        
         try {
           const resp = await fetch('/analyze-cloth', {
-            method: 'POST',
-            headers: {'Content-Type':'application/json'},
+            method: 'POST', headers: {'Content-Type':'application/json'},
             body: JSON.stringify({image: base64})
           });
           const data = await resp.json();
-          
+
           const cloth = {
             id: Date.now() + Math.random(),
-            imageData: e.target.result,
+            imageData: e.target.result,         // Orijinal görsel (detay ekranı için)
+            hanger_image: data.hanger_image || null,  // ← Askılı görsel (yeni!)
             label: data.label || 'Kıyafet',
             category: data.category || 'üst',
             tags: data.tags || [],
             aiComment: data.comment || '',
             addedAt: new Date().toISOString()
           };
-          
+
           clothes.push(cloth);
-          
-          // Door open animation
+
+          // Dolap kapısı animasyonu
           const door = document.getElementById('wardrobe-door');
           if (door) {
             door.classList.add('open');
-            setTimeout(() => {
-              door.classList.remove('open');
-              door.style.display = 'none';
-            }, 700);
+            setTimeout(() => { door.classList.remove('open'); door.style.display='none'; }, 700);
           }
-          
+
           renderClothes();
           updateCounts();
-          
-          // Animate last added item
+
+          // Son eklenen kıyafet animasyonu
           setTimeout(() => {
             const items = document.querySelectorAll('.hanger-item');
             const lastItem = items[items.length - 1];
@@ -805,35 +849,24 @@ window.handleClothes = async (files) => {
               setTimeout(() => lastItem.classList.add('hang-swing'), 700);
             }
           }, 100);
-          
-          // Save only metadata to Firestore (no image data - too large)
+
+          // Firestore'a metadata kaydet (görsel hariç)
           try {
             const clothMeta = {
-              id: cloth.id,
-              label: cloth.label,
-              tags: cloth.tags,
-              aiComment: cloth.aiComment,
-              addedAt: cloth.addedAt
+              id: cloth.id, label: cloth.label,
+              tags: cloth.tags, aiComment: cloth.aiComment,
+              category: cloth.category, addedAt: cloth.addedAt
             };
-            await setDoc(doc(db, 'users', currentUser.uid), {
-              clothesMeta: arrayUnion(clothMeta)
-            }, {merge: true});
-          } catch(fsErr) {
-            console.error("Firestore meta hata:", fsErr.message);
-          }
-          
-          // Show AI comment toast
+            await setDoc(doc(db, 'users', currentUser.uid),
+              {clothesMeta: arrayUnion(clothMeta)}, {merge: true});
+          } catch(fsErr) { console.error("Firestore meta hata:", fsErr.message); }
+
           const pick = uploadComments[Math.floor(Math.random() * uploadComments.length)];
           setTimeout(() => showToast(pick[0], data.comment || pick[1]), 500);
-          
-          // Small delay between uploads to avoid Firestore conflicts
-          if (i < fileArray.length - 1) {
-            await new Promise(r => setTimeout(r, 500));
-          }
-          
-        } catch(err) {
-          console.error(err);
-        }
+
+          if (i < fileArray.length - 1) await new Promise(r => setTimeout(r, 500));
+
+        } catch(err) { console.error(err); }
         resolve();
       };
       reader.readAsDataURL(file);
@@ -842,33 +875,33 @@ window.handleClothes = async (files) => {
   document.getElementById('upload-loading').style.display = 'none';
 };
 
+// ── DETAIL ──
 window.showClothDetail = (index) => {
   currentDetailIndex = index;
   const c = clothes[index];
+  // Detay ekranında orijinal görsel göster
   document.getElementById('detail-img').src = c.imageData;
-  document.getElementById('detail-tags').innerHTML = (c.tags || []).map(t => 
-    `<span class="cloth-tag-chip">${t}</span>`
-  ).join('');
+  document.getElementById('detail-tags').innerHTML = (c.tags||[]).map(t =>
+    `<span class="cloth-tag-chip">${t}</span>`).join('');
   document.getElementById('detail-ai-comment').textContent = c.aiComment || 'Bu kıyafet dolabında çok iyi duruyor!';
   document.getElementById('cloth-detail-overlay').style.display = 'flex';
 };
 
 window.closeDetail = (e) => {
-  if (e.target === document.getElementById('cloth-detail-overlay')) {
+  if (e.target === document.getElementById('cloth-detail-overlay'))
     document.getElementById('cloth-detail-overlay').style.display = 'none';
-  }
 };
 
 window.removeCloth = async () => {
   if (currentDetailIndex < 0) return;
   clothes.splice(currentDetailIndex, 1);
   await setDoc(doc(db, 'users', currentUser.uid), {clothes}, {merge: true});
-  renderClothes();
-  updateCounts();
+  renderClothes(); updateCounts();
   document.getElementById('cloth-detail-overlay').style.display = 'none';
   showToast('🗑️', 'Kıyafet dolabından kaldırıldı.');
 };
 
+// ── NAVIGATION ──
 window.showScreen = (name) => {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
@@ -877,8 +910,7 @@ window.showScreen = (name) => {
 };
 
 window.selectOpt = (btn, type, val) => {
-  const parent = btn.parentElement;
-  parent.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
+  btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
   if (type === 'weather') selectedWeather = val;
   if (type === 'event') selectedEvent = val;
@@ -886,28 +918,26 @@ window.selectOpt = (btn, type, val) => {
 };
 
 function checkSuggestReady() {
-  document.getElementById('suggest-btn').disabled = 
-    !(selectedWeather && selectedEvent && clothes.length > 0);
+  document.getElementById('suggest-btn').disabled = !(selectedWeather && selectedEvent && clothes.length > 0);
 }
 
+// ── SUGGEST ──
 window.getSuggestion = async () => {
   document.getElementById('suggest-form').style.display = 'none';
   document.getElementById('suggest-loading').style.display = 'block';
   document.getElementById('suggest-result').style.display = 'none';
-  
+
   const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
   const userData = userDoc.data();
   const bodyAnalysis = userData?.bodyAnalysis || '';
   const likeHistory = userData?.likeHistory || [];
-  
-  const clothesList = clothes.map((c, i) => 
-    `${i+1}. ${c.label} (Etiketler: ${(c.tags||[]).join(', ')})`
-  ).join('\n');
-  
+
+  const clothesList = clothes.map((c, i) =>
+    `${i+1}. ${c.label} (Etiketler: ${(c.tags||[]).join(', ')})`).join('\n');
+
   try {
     const resp = await fetch('/suggest', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
+      method: 'POST', headers: {'Content-Type':'application/json'},
       body: JSON.stringify({
         messages: [{
           role: 'user',
@@ -932,26 +962,20 @@ Türkçe olarak:
 
 Samimi, sıcak ve heyecanlı bir dil kullan. Kısa ve net ol.`
         }],
-        model: 'claude-sonnet-4-5',
+        model: 'claude-sonnet-4-20250514',
         max_tokens: 1000
       })
     });
-    
     const data = await resp.json();
     const text = data.content?.[0]?.text || 'Kombin üretilemedi.';
     lastSuggestion = text;
-    
     document.getElementById('result-content').innerHTML = text
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
       .replace(/\n/g, '<br>');
-    
     document.getElementById('suggest-loading').style.display = 'none';
     document.getElementById('suggest-result').style.display = 'block';
-    
-    // Increment combo count
     await updateDoc(doc(db, 'users', currentUser.uid), {comboCount: increment(1)});
     document.getElementById('stat-combos').textContent = (userData.comboCount || 0) + 1;
-    
   } catch(e) {
     document.getElementById('suggest-loading').style.display = 'none';
     document.getElementById('suggest-form').style.display = 'block';
@@ -962,7 +986,6 @@ Samimi, sıcak ve heyecanlı bir dil kullan. Kısa ve net ol.`
 window.saveFeedback = async (type) => {
   document.querySelectorAll('.feedback-btn').forEach(b => b.classList.remove('active'));
   event.target.classList.add('active');
-  
   if (type === 'like') {
     await updateDoc(doc(db, 'users', currentUser.uid), {
       likeCount: increment(1),
@@ -979,17 +1002,18 @@ window.saveFeedback = async (type) => {
 window.resetSuggest = () => {
   document.getElementById('suggest-form').style.display = 'block';
   document.getElementById('suggest-result').style.display = 'none';
-  selectedWeather = '';
-  selectedEvent = '';
+  selectedWeather = ''; selectedEvent = '';
   document.querySelectorAll('.opt-btn, .event-btn').forEach(b => b.classList.remove('selected'));
   checkSuggestReady();
 };
 </script>
-
 </body>
 </html>
 '''
 
+# ──────────────────────────────────────────────
+# HTTP SERVER
+# ──────────────────────────────────────────────
 def recv_exact(conn, length):
     data = b""
     while len(data) < length:
@@ -1008,12 +1032,10 @@ def parse_request(conn):
         header_data += chunk
     header_part, body_start = header_data.split(b"\r\n\r\n", 1)
     lines = header_part.decode("utf-8", errors="replace").split("\r\n")
-    request_line = lines[0]
-    parts = request_line.split(" ")
+    parts = lines[0].split(" ")
     if len(parts) < 2:
         return None, None, None, None
-    method = parts[0]
-    path = parts[1]
+    method, path = parts[0], parts[1]
     headers = {}
     for line in lines[1:]:
         if ":" in line:
@@ -1027,19 +1049,18 @@ def parse_request(conn):
     return method, path, headers, body
 
 def send_response(conn, status, content_type, body):
-    status_texts = {200: "OK", 400: "Bad Request", 404: "Not Found", 500: "Server Error"}
+    status_texts = {200:"OK", 400:"Bad Request", 404:"Not Found", 500:"Server Error"}
     status_text = status_texts.get(status, "Error")
     if isinstance(body, str):
         body = body.encode("utf-8")
     header = (
-        "HTTP/1.1 " + str(status) + " " + status_text + "\r\n"
-        "Content-Type: " + content_type + "\r\n"
-        "Content-Length: " + str(len(body)) + "\r\n"
+        f"HTTP/1.1 {status} {status_text}\r\n"
+        f"Content-Type: {content_type}\r\n"
+        f"Content-Length: {len(body)}\r\n"
         "Access-Control-Allow-Origin: *\r\n"
         "Access-Control-Allow-Methods: POST, GET, OPTIONS\r\n"
         "Access-Control-Allow-Headers: Content-Type\r\n"
-        "Connection: close\r\n"
-        "\r\n"
+        "Connection: close\r\n\r\n"
     )
     try:
         conn.sendall(header.encode("utf-8") + body)
@@ -1077,11 +1098,11 @@ def call_anthropic(payload):
         return 500, json.dumps({"error": str(e)})
 
 def handle_analyze_cloth(body):
-    print("[DEBUG] analyze-cloth istegi alindi, boyut:", len(body) // 1024, "KB")
+    print("[DEBUG] analyze-cloth istegi alindi, boyut:", len(body)//1024, "KB")
     try:
         data = json.loads(body)
         image_b64 = data.get("image", "")
-        print("[DEBUG] Image b64 boyut:", len(image_b64) // 1024, "KB")
+        print("[DEBUG] Image b64 boyut:", len(image_b64)//1024, "KB")
     except Exception as e:
         print("[HATA] JSON parse:", e)
         return 400, json.dumps({"error": "Invalid JSON"})
@@ -1125,18 +1146,26 @@ JSON formatında döndür (sadece JSON, başka hiçbir şey yazma):
         try:
             resp_data = json.loads(result)
             print("[DEBUG] Anthropic ham cevap:", result[:300])
-            text = resp_data["content"][0]["text"]
-            text = text.strip()
+            text = resp_data["content"][0]["text"].strip()
             if "```" in text:
                 parts = text.split("```")
                 for p in parts:
                     p = p.strip()
-                    if p.startswith("json"):
-                        p = p[4:].strip()
+                    if p.startswith("json"): p = p[4:].strip()
                     if p.startswith("{"):
                         text = p
                         break
             parsed = json.loads(text.strip())
+
+            # ── Askı görseli oluştur ──
+            category = parsed.get("category", "üst")
+            hanger_img = process_cloth_with_hanger(image_b64, category)
+            if hanger_img:
+                parsed["hanger_image"] = hanger_img
+                print("[INFO] Hanger görsel oluşturuldu, boyut:", len(hanger_img)//1024, "KB")
+            else:
+                print("[INFO] Hanger görsel oluşturulamadı, SVG kullanılacak.")
+
             return 200, json.dumps(parsed)
         except Exception as e:
             print("[HATA] analyze parse:", e, "| result:", result[:200])
@@ -1188,9 +1217,8 @@ def handle_suggest(body):
         data = json.loads(body)
     except Exception:
         return 400, json.dumps({"error": "Invalid JSON"})
-    
     sanitized = {
-        "model": "claude-sonnet-4-5",
+        "model": "claude-sonnet-4-20250514",
         "max_tokens": min(int(data.get("max_tokens", 1000)), MAX_TOKENS_LIMIT),
         "messages": data.get("messages", []),
     }
@@ -1202,7 +1230,6 @@ def handle_client(conn, addr):
         if method is None:
             conn.close()
             return
-
         if method == "OPTIONS":
             send_response(conn, 200, "text/plain", "")
         elif method == "GET" and (path == "/" or path == "/index.html"):
@@ -1241,7 +1268,9 @@ if __name__ == "__main__":
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind(("0.0.0.0", PORT))
     server.listen(10)
-    print("AI Stylist V2 baslatildi - http://localhost:" + str(PORT))
+    print("AI Stylist V3 baslatildi - http://localhost:" + str(PORT))
+    print("hanger.png konumu:", HANGER_PATH)
+    print("rembg durumu:", "AKTIF" if REMBG_AVAILABLE else "PASIF (SVG fallback)")
 
     try:
         while True:

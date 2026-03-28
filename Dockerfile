@@ -1,10 +1,11 @@
 FROM python:3.11-slim
 
 # Sistem bağımlılıkları (rembg için gerekli)
-RUN apt-get update && apt-get install -y \
-    libgl1 \
+RUN apt-get update --fix-missing && apt-get install -y --no-install-recommends \
+    libgl1-mesa-glx \
     libglib2.0-0 \
     libgomp1 \
+    && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

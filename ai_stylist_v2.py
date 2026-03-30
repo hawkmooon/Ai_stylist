@@ -119,8 +119,6 @@ INDEX_HTML = r'''<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dolabim - AI Stylist</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Playfair+Display:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Playfair+Display:wght@400;500;600;700&display=swap');
 
@@ -1405,10 +1403,20 @@ window.startCropFlow = function(files) {
   showCropperForIndex(0);
 };
 
-// fileInput change — module scope'tan dinle
-document.getElementById('fileInput').addEventListener('change', function() {
-  if (this.files && this.files.length > 0) {
-    startCropFlow(this.files);
+// fileInput change — direkt analiz, cropper bypass
+document.getElementById('fileInput').addEventListener('change', async function() {
+  if (!this.files || this.files.length === 0) return;
+  const files = Array.from(this.files);
+  this.value = '';
+  for (const file of files) {
+    const reader = new FileReader();
+    await new Promise(resolve => {
+      reader.onload = async (e) => {
+        await analyzeAndAddCloth(e.target.result);
+        resolve();
+      };
+      reader.readAsDataURL(file);
+    });
   }
 });
 

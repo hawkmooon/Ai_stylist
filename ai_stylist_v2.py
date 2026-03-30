@@ -364,229 +364,135 @@ body{
 .screen.active{display:block;}
 
 /* ── WARDROBE ── */
-
-/* Outer frame — the wardrobe cabinet */
 .wardrobe-outer{
-  border-radius:6px;
-  overflow:hidden;
-  margin-bottom:22px;
   position:relative;
-  border:3px solid #7a5828;
+  border-radius:10px;
+  overflow:hidden;
+  margin-bottom:18px;
+  border:2px solid #1a1d1e;
   box-shadow:
-    0 16px 50px rgba(60,40,10,.35),
-    0 4px 12px rgba(60,40,10,.2),
-    inset 0 1px 0 rgba(255,255,255,.12);
+    0 20px 60px rgba(0,0,0,0.5),
+    0 4px 16px rgba(0,0,0,0.3),
+    inset 0 1px 0 rgba(255,255,255,0.06);
 }
 
-/* Top crown molding */
-.wardrobe-crown{
-  background:linear-gradient(180deg, #4a3018 0%, #6b4c28 50%, #7a5828 100%);
-  padding:10px 16px 8px;
-  display:flex;align-items:center;justify-content:space-between;
-  border-bottom:2px solid var(--gold);
+/* SVG arka plan — tam genişlik, sabit oran */
+.wardrobe-svg-bg{
+  display:block;
+  width:100%;
+  height:260px;
+  position:absolute;
+  top:0;left:0;
+}
+
+/* Kıyafetler katmanı — SVG üzerinde, tam kaplama */
+.clothes-layer{
   position:relative;
-}
-.wardrobe-crown::after{
-  content:'';position:absolute;bottom:-6px;left:0;right:0;height:4px;
-  background:linear-gradient(180deg, rgba(0,0,0,.2), transparent);
-}
-
-.crown-ornament{
-  font-size:11px;letter-spacing:4px;
-  color:var(--gold);text-transform:uppercase;
-  font-family:'Playfair Display',serif;
+  z-index:2;
+  width:100%;
+  height:260px;
+  display:flex;
+  flex-direction:column;
 }
 
-.crown-dots{display:flex;gap:8px;}
-.crown-dot{
-  width:10px;height:10px;border-radius:50%;
-  background:radial-gradient(circle at 35% 35%, var(--gold-shine), var(--brass));
-  box-shadow:0 1px 4px rgba(0,0,0,.5);
-}
-
-/* Main wardrobe body */
-.wardrobe-bg{
-  position:relative;
-  min-height:220px;
-  overflow:hidden;
-  /* Oak interior — warm light wood planks with vertical grain lines */
-  background:
-    repeating-linear-gradient(
-      90deg,
-      transparent, transparent 52px,
-      rgba(100,65,20,.07) 52px, rgba(100,65,20,.07) 54px
-    ),
-    repeating-linear-gradient(
-      180deg,
-      transparent, transparent 8px,
-      rgba(255,255,255,.04) 8px, rgba(255,255,255,.04) 9px
-    ),
-    linear-gradient(180deg,
-      #c8a870 0%,
-      #d4b880 15%,
-      #e0c890 35%,
-      #d8be88 55%,
-      #cdb078 75%,
-      #c0a068 100%
-    );
-  padding:0 14px 14px;
-  /* Inner shadow for depth */
-  box-shadow:inset 4px 0 16px rgba(80,50,10,.2), inset -4px 0 16px rgba(80,50,10,.2), inset 0 20px 30px rgba(50,30,5,.15);
-}
-
-/* Door overlay for animation */
+/* Kapı animasyonu */
 .wardrobe-door-overlay{
   position:absolute;inset:0;
-  background:
-    repeating-linear-gradient(
-      88deg,
-      transparent, transparent 48px,
-      rgba(60,35,10,.08) 48px, rgba(60,35,10,.08) 50px
-    ),
-    linear-gradient(160deg,
-      #7a5828 0%,
-      #8b6535 25%,
-      #6b4c28 55%,
-      #5a3e20 80%,
-      #4a3018 100%
-    );
+  background:linear-gradient(160deg, #3a3d3e 0%, #2e3133 40%, #252829 80%, #1e2021 100%);
   z-index:10;transform-origin:left center;
-  display:flex;align-items:center;justify-content:center;
+  display:flex;align-items:center;justify-content:flex-end;
+  padding-right:24px;
   pointer-events:none;
 }
-
-/* Raised panel on door */
 .wardrobe-door-overlay::before{
   content:'';
-  position:absolute;top:14px;right:14px;bottom:14px;left:14px;
-  border:2px solid rgba(255,255,255,.10);
+  position:absolute;top:12px;right:12px;bottom:12px;left:12px;
+  border:1px solid rgba(255,255,255,0.06);
   border-radius:2px;
-  box-shadow:inset 0 0 16px rgba(0,0,0,.2), 0 0 0 1px rgba(0,0,0,.25);
 }
-
 .wardrobe-door-overlay.open{animation:doorSwing 0.7s cubic-bezier(.4,0,.2,1) forwards;}
 
 .door-handle{
-  position:absolute;right:22px;top:50%;transform:translateY(-50%);
-  width:10px;height:50px;
-  background:linear-gradient(180deg, var(--gold-shine) 0%, var(--gold) 40%, var(--brass) 100%);
-  border-radius:5px;
-  box-shadow:0 3px 12px rgba(0,0,0,.6), inset 0 1px 2px rgba(255,255,255,.4);
+  width:8px;height:48px;
+  background:linear-gradient(180deg, #e0e0e0 0%, #b8b8b8 40%, #d8d8d8 100%);
+  border-radius:4px;
+  box-shadow:0 2px 10px rgba(0,0,0,0.6), inset 0 1px 2px rgba(255,255,255,0.4);
 }
 .door-handle::before{
   content:'';position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-  width:16px;height:16px;border-radius:50%;
-  background:radial-gradient(circle at 35% 35%, var(--gold-shine), var(--brass));
-  box-shadow:0 2px 8px rgba(0,0,0,.5);
+  width:14px;height:14px;border-radius:50%;
+  background:radial-gradient(circle at 35% 35%, #f0f0f0, #a0a0a0);
+  box-shadow:0 2px 6px rgba(0,0,0,0.5);
 }
 
-/* Metal hanging rail */
-.wardrobe-rail-wrap{
-  padding-top:14px;margin-bottom:0;
-}
-
-.wardrobe-rail{
-  position:relative;
-  height:14px;
-  background:linear-gradient(180deg,
-    #e8e8e8 0%,
-    #c0c0c0 20%,
-    #a8a8a8 35%,
-    #d4d4d4 50%,
-    #b0b0b0 65%,
-    #909090 80%,
-    #c0c0c0 100%
-  );
-  border-radius:7px;
-  box-shadow:
-    0 4px 12px rgba(0,0,0,.6),
-    0 1px 0 rgba(255,255,255,.4) inset,
-    0 -1px 0 rgba(0,0,0,.3) inset;
-  margin:0 8px;
-}
-
-/* Rail end caps */
-.wardrobe-rail::before,.wardrobe-rail::after{
-  content:'';position:absolute;top:50%;transform:translateY(-50%);
-  width:16px;height:22px;
-  background:linear-gradient(180deg, #d4d4d4, #909090);
-  border-radius:4px;
-  box-shadow:0 3px 8px rgba(0,0,0,.5);
-}
-.wardrobe-rail::before{left:-6px;}
-.wardrobe-rail::after{right:-6px;}
-
-/* Clothes hanging area */
+/* Kıyafet askı rayı alanı — SVG'deki ray ile hizalı */
 .clothes-rail{
-  display:flex;gap:6px;
+  position:absolute;
+  top:62px; /* SVG'deki ray'ın altına denk geliyor */
+  left:0;right:0;bottom:0;
+  display:flex;
+  gap:4px;
   overflow-x:auto;
-  padding:0 4px 14px;
-  min-height:150px;
+  padding:0 20px 28px;
   align-items:flex-start;
 }
 .clothes-rail::-webkit-scrollbar{height:3px;}
-.clothes-rail::-webkit-scrollbar-thumb{background:rgba(201,168,76,.4);}
+.clothes-rail::-webkit-scrollbar-thumb{background:rgba(200,200,200,.25);}
 
-/* Individual hanger item */
+/* Tek hanger item */
 .hanger-item{
-  flex-shrink:0;width:84px;cursor:pointer;
-  text-align:center;position:relative;
-  transition:transform .3s cubic-bezier(.22,1,.36,1);
+  flex-shrink:0;
+  width:80px;
+  cursor:pointer;
+  text-align:center;
   display:flex;flex-direction:column;align-items:center;
-  padding-top:2px;
+  transition:transform .3s cubic-bezier(.22,1,.36,1);
 }
-.hanger-item:hover{transform:translateY(-8px) scale(1.06);}
-.hanger-item:hover .hanger-label{color:var(--gold-light);}
+.hanger-item:hover{transform:translateY(-8px) scale(1.05);}
 
-/* Hook connecting to rail */
-.hanger-hook-wire{
-  width:2px;height:10px;
-  background:linear-gradient(180deg, #c0c0c0, #909090);
-  margin-bottom:0;
+/* Gerçek tel askı SVG */
+.hanger-wire{
+  width:72px;
+  height:52px;
+  display:block;
+  flex-shrink:0;
 }
 
-/* Real image mode */
+/* Kıyafet görseli — askının hemen altında */
 .real-hanger{
-  width:84px;height:105px;
+  width:76px;height:90px;
   object-fit:contain;
-  filter:drop-shadow(0 6px 12px rgba(0,0,0,.6));
+  display:block;
+  margin-top:-8px;
+  filter:drop-shadow(0 6px 14px rgba(0,0,0,0.7));
 }
 
-/* SVG fallback hanger */
-.hanger-hook{font-size:14px;display:block;filter:drop-shadow(0 2px 4px rgba(0,0,0,.6));}
-.hanger-bar{
-  width:54px;height:4px;
-  background:linear-gradient(90deg, #888, #d0d0d0, #a0a0a0, #d0d0d0, #888);
-  border-radius:2px;
-  box-shadow:0 2px 6px rgba(0,0,0,.5);
+.hanger-svg{
+  width:64px;height:78px;
+  margin-top:-8px;
+  filter:drop-shadow(0 5px 12px rgba(0,0,0,0.65));
 }
-.hanger-svg{width:68px;height:84px;filter:drop-shadow(0 5px 10px rgba(0,0,0,.5));}
 .hanger-svg svg{width:100%;height:100%;}
 
 .hanger-label{
-  font-size:9px;color:rgba(60,35,10,.7);
-  margin-top:5px;line-height:1.3;
-  max-width:82px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  letter-spacing:.3px;font-weight:500;
+  font-size:9px;
+  color:rgba(220,220,220,0.7);
+  margin-top:4px;
+  max-width:78px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  letter-spacing:.3px;
   transition:color .2s;
 }
-
-/* Wardrobe floor */
-.wardrobe-floor{
-  height:16px;
-  background:linear-gradient(180deg, #7a5828, #5a3e20);
-  position:relative;
-}
-.wardrobe-floor::before{
-  content:'';position:absolute;top:0;left:0;right:0;height:3px;
-  background:linear-gradient(90deg, transparent, rgba(201,168,76,.3), transparent);
-}
+.hanger-item:hover .hanger-label{color:rgba(255,255,255,0.95);}
 
 /* Empty state */
 .wardrobe-empty{
-  width:100%;text-align:center;padding:40px 20px;
-  color:rgba(90,62,30,.45);font-style:italic;font-size:15px;
-  line-height:1.8;
+  position:absolute;
+  top:50%;left:50%;transform:translate(-50%,-50%);
+  text-align:center;
+  color:rgba(200,200,200,0.4);
+  font-style:italic;font-size:14px;
+  line-height:1.8;white-space:nowrap;
 }
 
 /* ── UPLOAD ZONE ── */
@@ -833,37 +739,78 @@ body{
     <!-- WARDROBE SCREEN -->
     <div class="screen active fade-up" id="screen-wardrobe">
       <div class="wardrobe-outer">
-        <!-- Crown molding -->
-        <div class="wardrobe-crown">
-          <div class="crown-ornament">Dolabım</div>
-          <div class="crown-dots">
-            <div class="crown-dot"></div>
-            <div class="crown-dot"></div>
-            <div class="crown-dot"></div>
-          </div>
-        </div>
+        <svg class="wardrobe-svg-bg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 260" preserveAspectRatio="xMidYMid slice">
+          <defs>
+            <linearGradient id="wallGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#252829"/>
+              <stop offset="50%" stop-color="#2e3133"/>
+              <stop offset="100%" stop-color="#1e2021"/>
+            </linearGradient>
+            <linearGradient id="floorGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#363a3b"/>
+              <stop offset="100%" stop-color="#1a1d1e"/>
+            </linearGradient>
+            <linearGradient id="railGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#f2f2f2"/>
+              <stop offset="20%" stop-color="#d8d8d8"/>
+              <stop offset="50%" stop-color="#b8b8b8"/>
+              <stop offset="80%" stop-color="#d4d4d4"/>
+              <stop offset="100%" stop-color="#989898"/>
+            </linearGradient>
+            <linearGradient id="capGrad" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#c0c0c0"/>
+              <stop offset="50%" stop-color="#ebebeb"/>
+              <stop offset="100%" stop-color="#a0a0a0"/>
+            </linearGradient>
+            <linearGradient id="shadowL" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="rgba(0,0,0,0.45)"/>
+              <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+            </linearGradient>
+            <linearGradient id="shadowR" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="rgba(0,0,0,0)"/>
+              <stop offset="100%" stop-color="rgba(0,0,0,0.45)"/>
+            </linearGradient>
+            <linearGradient id="shadowT" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="rgba(0,0,0,0.55)"/>
+              <stop offset="100%" stop-color="rgba(0,0,0,0)"/>
+            </linearGradient>
+          </defs>
+          <!-- Arka duvar -->
+          <rect width="480" height="260" fill="url(#wallGrad)"/>
+          <!-- Ince duvar dokusu -->
+          <rect x="0" y="65" width="480" height="1" fill="rgba(255,255,255,0.025)"/>
+          <rect x="0" y="130" width="480" height="1" fill="rgba(255,255,255,0.025)"/>
+          <rect x="0" y="195" width="480" height="1" fill="rgba(255,255,255,0.025)"/>
+          <!-- Zemin -->
+          <rect x="0" y="232" width="480" height="28" fill="url(#floorGrad)"/>
+          <rect x="0" y="231" width="480" height="2" fill="rgba(255,255,255,0.07)"/>
+          <!-- Gölgeler -->
+          <rect x="0" y="0" width="44" height="260" fill="url(#shadowL)"/>
+          <rect x="436" y="0" width="44" height="260" fill="url(#shadowR)"/>
+          <rect x="0" y="0" width="480" height="55" fill="url(#shadowT)"/>
+          <!-- Metal ray -->
+          <rect x="18" y="46" width="444" height="16" rx="8" fill="url(#railGrad)"/>
+          <rect x="20" y="47" width="440" height="3" rx="1.5" fill="rgba(255,255,255,0.65)"/>
+          <rect x="20" y="60" width="440" height="2" rx="1" fill="rgba(0,0,0,0.25)"/>
+          <!-- Ray uç kapaklar -->
+          <rect x="10" y="42" width="16" height="24" rx="5" fill="url(#capGrad)"/>
+          <rect x="12" y="45" width="5" height="18" rx="2.5" fill="rgba(255,255,255,0.55)"/>
+          <rect x="454" y="42" width="16" height="24" rx="5" fill="url(#capGrad)"/>
+          <rect x="463" y="45" width="5" height="18" rx="2.5" fill="rgba(255,255,255,0.55)"/>
+          <!-- Ray gölgesi -->
+          <ellipse cx="240" cy="65" rx="222" ry="5" fill="rgba(0,0,0,0.3)"/>
+        </svg>
 
-        <!-- Body -->
-        <div class="wardrobe-bg" id="wardrobe-bg">
+        <div class="clothes-layer" id="wardrobe-bg">
           <div class="wardrobe-door-overlay" id="wardrobe-door">
             <div class="door-handle"></div>
           </div>
-
-          <!-- Metal rail -->
-          <div class="wardrobe-rail-wrap">
-            <div class="wardrobe-rail"></div>
-          </div>
-
-          <!-- Hanging clothes -->
           <div class="clothes-rail" id="clothes-rail">
             <div class="wardrobe-empty" id="wardrobe-empty">
               Henüz kıyafet eklenmedi<br>
-              <span style="font-size:12px;opacity:.7;">Aşağıdan fotoğraf ekle</span>
+              <span style="font-size:12px;opacity:.6;">Aşağıdan fotoğraf ekle</span>
             </div>
           </div>
-
-          <!-- Floor plank -->
-          <div class="wardrobe-floor"></div>
         </div>
       </div>
 
@@ -1206,6 +1153,42 @@ function tagToColor(tags) {
   return '#8b7355';
 }
 
+// Gerçek tel askı SVG — krom metal görünüm
+function getWireHangerSVG() {
+  return `<svg class="hanger-wire" viewBox="0 0 72 52" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="wg" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#f0f0f0"/>
+        <stop offset="40%" stop-color="#c0c0c0"/>
+        <stop offset="100%" stop-color="#888"/>
+      </linearGradient>
+      <linearGradient id="wh" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="#d8d8d8"/>
+        <stop offset="50%" stop-color="#f8f8f8"/>
+        <stop offset="100%" stop-color="#b0b0b0"/>
+      </linearGradient>
+    </defs>
+    <!-- Kanca üst kısmı (raya bağlı) -->
+    <path d="M36 2 Q36 0 38 0 Q42 0 42 4 Q42 8 38 10 L36 12" 
+          fill="none" stroke="url(#wg)" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- Kanca orta -->
+    <path d="M36 12 Q34 16 30 18" 
+          fill="none" stroke="url(#wg)" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- Sol kol -->
+    <path d="M30 18 Q10 22 4 28 Q2 30 4 32" 
+          fill="none" stroke="url(#wh)" stroke-width="2" stroke-linecap="round"/>
+    <!-- Sağ kol -->
+    <path d="M30 18 Q52 22 68 28 Q70 30 68 32" 
+          fill="none" stroke="url(#wh)" stroke-width="2" stroke-linecap="round"/>
+    <!-- Alt yatay bar -->
+    <path d="M4 32 Q36 36 68 32" 
+          fill="none" stroke="url(#wh)" stroke-width="2.5" stroke-linecap="round"/>
+    <!-- Parlama efekti -->
+    <path d="M10 29 Q36 33 62 29" 
+          fill="none" stroke="rgba(255,255,255,0.4)" stroke-width="1" stroke-linecap="round"/>
+  </svg>`;
+}
+
 function renderClothes() {
   const rail = document.getElementById('clothes-rail');
   const empty = document.getElementById('wardrobe-empty');
@@ -1223,9 +1206,11 @@ function renderClothes() {
     item.className = 'hanger-item';
     item.onclick = () => showClothDetail(i);
 
-    // ── Gerçek askı görseli varsa kullan, yoksa SVG fallback ──
+    const hangerSVG = getWireHangerSVG();
+
     if (c.hanger_image) {
       item.innerHTML = `
+        ${hangerSVG}
         <img src="data:image/png;base64,${c.hanger_image}" class="real-hanger" alt="${c.label}">
         <div class="hanger-label">${c.label}</div>
       `;
@@ -1233,8 +1218,7 @@ function renderClothes() {
       const color = tagToColor(c.tags);
       const svg = getClothSVG(c.category, color, c.label?.toLowerCase());
       item.innerHTML = `
-        <span class="hanger-hook">🪝</span>
-        <div class="hanger-bar"></div>
+        ${hangerSVG}
         <div class="hanger-svg">${svg}</div>
         <div class="hanger-label">${c.label}</div>
       `;

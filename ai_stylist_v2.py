@@ -398,11 +398,22 @@ body{
 /* Kapı animasyonu */
 .wardrobe-door-overlay{
   position:absolute;inset:0;
-  background:linear-gradient(160deg, #3a3d3e 0%, #2e3133 40%, #252829 80%, #1e2021 100%);
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent, transparent 58px,
+      rgba(255,255,255,.03) 58px, rgba(255,255,255,.03) 60px
+    ),
+    linear-gradient(160deg, #4a3520 0%, #3a2810 40%, #2e2008 80%, #1e1404 100%);
   z-index:10;transform-origin:left center;
   display:flex;align-items:center;justify-content:flex-end;
   padding-right:24px;
-  pointer-events:none;
+  cursor:pointer;
+  pointer-events:auto;
+  transition:box-shadow 0.2s;
+}
+.wardrobe-door-overlay:hover .door-handle{
+  filter:brightness(1.2);
 }
 .wardrobe-door-overlay::before{
   content:'';
@@ -465,6 +476,19 @@ body{
   display:block;
   margin-top:-8px;
   filter:drop-shadow(0 6px 14px rgba(0,0,0,0.7));
+  border-radius:4px;
+}
+
+/* Gerçek fotoğraf (rembg'siz) — beyaz arka planla kırpılmış görünüm */
+.real-photo-hanger{
+  width:76px;height:86px;
+  object-fit:cover;
+  object-position:center top;
+  display:block;
+  margin-top:-6px;
+  border-radius:6px;
+  box-shadow:0 6px 18px rgba(0,0,0,0.75), 0 2px 4px rgba(0,0,0,0.5);
+  border:1px solid rgba(255,255,255,0.08);
 }
 
 .hanger-svg{
@@ -473,6 +497,14 @@ body{
   filter:drop-shadow(0 5px 12px rgba(0,0,0,0.65));
 }
 .hanger-svg svg{width:100%;height:100%;}
+
+/* Claude tarafından üretilen SVG — daha büyük ve detaylı */
+.ai-generated-svg{
+  width:76px;height:90px;
+  margin-top:-10px;
+  filter:drop-shadow(0 6px 16px rgba(0,0,0,0.75)) drop-shadow(0 2px 4px rgba(0,0,0,0.5));
+}
+.ai-generated-svg svg{width:100%;height:100%;}
 
 .hanger-label{
   font-size:9px;
@@ -802,7 +834,11 @@ body{
         </svg>
 
         <div class="clothes-layer" id="wardrobe-bg">
-          <div class="wardrobe-door-overlay" id="wardrobe-door">
+          <div class="wardrobe-door-overlay" id="wardrobe-door" onclick="openWardrobeDoor()">
+            <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;" id="door-label">
+              <div style="font-size:26px;margin-bottom:6px;">🚪</div>
+              <div style="font-family:'Cormorant Garamond',serif;font-size:13px;letter-spacing:2px;color:rgba(196,168,130,0.75);text-transform:uppercase;">Dolabı Aç</div>
+            </div>
             <div class="door-handle"></div>
           </div>
           <div class="clothes-rail" id="clothes-rail">
@@ -814,7 +850,7 @@ body{
         </div>
       </div>
 
-      <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
+      <div class="upload-zone" onclick="openWardrobeAndUpload()">
         <div class="upload-icon">📷</div>
         <div class="upload-text">Kıyafet fotoğrafı ekle</div>
       </div>
@@ -1053,6 +1089,29 @@ window.finishOnboard = async () => {
   showToast('👗', 'Dolabına hoş geldin! Kıyafetlerini eklemeye başla.');
 };
 
+// ── WARDROBE DOOR ──
+let wardrobeIsOpen = false;
+
+window.openWardrobeDoor = function(instant) {
+  const door = document.getElementById('wardrobe-door');
+  if (!door || wardrobeIsOpen) return;
+  wardrobeIsOpen = true;
+  if (instant) {
+    door.style.transition = 'none';
+    door.style.display = 'none';
+  } else {
+    door.classList.add('open');
+    setTimeout(() => { door.style.display = 'none'; }, 700);
+  }
+};
+
+window.openWardrobeAndUpload = function() {
+  openWardrobeDoor();
+  setTimeout(() => {
+    document.getElementById('fileInput').click();
+  }, wardrobeIsOpen ? 0 : 350);
+};
+
 // ── WARDROBE ──
 async function loadClothes() {
   const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
@@ -1062,6 +1121,10 @@ async function loadClothes() {
   document.getElementById('stat-clothes').textContent = clothes.length;
   document.getElementById('stat-combos').textContent = userDoc.data()?.comboCount || 0;
   document.getElementById('stat-likes').textContent = userDoc.data()?.likeCount || 0;
+  // Kıyafet varsa kapıyı anında (animasyonsuz) aç
+  if (clothes.length > 0) {
+    openWardrobeDoor(true);
+  }
 }
 
 // SVG fallback (rembg yoksa veya hanger_image gelmediyse)
@@ -1209,9 +1272,24 @@ function renderClothes() {
     const hangerSVG = getWireHangerSVG();
 
     if (c.hanger_image) {
+      // rembg ile üretilmiş arka planı silinmiş görsel
       item.innerHTML = `
         ${hangerSVG}
         <img src="data:image/png;base64,${c.hanger_image}" class="real-hanger" alt="${c.label}">
+        <div class="hanger-label">${c.label}</div>
+      `;
+    } else if (c.cloth_svg) {
+      // Claude'un ürettiği gerçekçi SVG
+      item.innerHTML = `
+        ${hangerSVG}
+        <div class="hanger-svg ai-generated-svg">${c.cloth_svg}</div>
+        <div class="hanger-label">${c.label}</div>
+      `;
+    } else if (c.imageData) {
+      // Hiçbir şey yoksa gerçek fotoğrafı direkt kullan
+      item.innerHTML = `
+        ${hangerSVG}
+        <img src="${c.imageData}" class="real-photo-hanger" alt="${c.label}">
         <div class="hanger-label">${c.label}</div>
       `;
     } else {
@@ -1252,8 +1330,9 @@ window.handleClothes = async (files) => {
 
           const cloth = {
             id: Date.now() + Math.random(),
-            imageData: e.target.result,         // Orijinal görsel (detay ekranı için)
-            hanger_image: data.hanger_image || null,  // ← Askılı görsel (yeni!)
+            imageData: e.target.result,
+            hanger_image: data.hanger_image || null,
+            cloth_svg: data.cloth_svg || null,       // ← Claude'un ürettiği SVG
             label: data.label || 'Kıyafet',
             category: data.category || 'üst',
             tags: data.tags || [],
@@ -1263,11 +1342,9 @@ window.handleClothes = async (files) => {
 
           clothes.push(cloth);
 
-          // Dolap kapısı animasyonu
-          const door = document.getElementById('wardrobe-door');
-          if (door) {
-            door.classList.add('open');
-            setTimeout(() => { door.classList.remove('open'); door.style.display='none'; }, 700);
+          // Dolap kapısı animasyonu — ilk kıyafet eklenince aç
+          if (!wardrobeIsOpen) {
+            openWardrobeDoor();
           }
 
           renderClothes();
@@ -1530,6 +1607,60 @@ def call_anthropic(payload):
         print("[HATA] Anthropic genel:", str(e))
         return 500, json.dumps({"error": str(e)})
 
+def generate_cloth_svg(label, category, tags, image_b64):
+    """Claude'a kıyafetin görselini + analizini vererek gerçekçi SVG ürettir."""
+    color_tags = ", ".join(tags[:5]) if tags else "belirsiz renk"
+    prompt = f"""Sana bir kıyafetin fotoğrafını ve analizini veriyorum.
+Bu kıyafeti temsil eden, bir mağaza kataloğuna yakışan GERÇEKÇİ bir SVG çiz.
+
+Kıyafet bilgisi:
+- İsim: {label}
+- Kategori: {category}
+- Özellikler: {color_tags}
+
+SVG kuralları (KESİNLİKLE UYULACAK):
+1. viewBox="0 0 120 150" kullan
+2. SADECE SVG kodu yaz — başka hiçbir şey yazma, açıklama yok
+3. Kıyafeti GERÇEK görünümlü çiz: katmanlar, gölgeler, dikiş detayları, düğmeler, yaka, kol gibi detaylar
+4. Rengi fotoğraftan al — ana rengi doğru kullan
+5. Kıyafet viewBox'ı dolduracak şekilde büyük olsun
+6. Kumaş dokusunu lineerGradient ile simüle et
+7. Detay ekle: yaka çizgisi, kol kıvrımları, düğmeler varsa, cep varsa, dikiş çizgileri
+8. Alt kısmında hafif gölge bırak
+
+Sadece <svg>...</svg> döndür."""
+
+    payload = {
+        "model": "claude-haiku-4-5-20251001",
+        "max_tokens": 1200,
+        "messages": [{
+            "role": "user",
+            "content": [
+                {
+                    "type": "image",
+                    "source": {"type": "base64", "media_type": "image/jpeg", "data": image_b64}
+                },
+                {"type": "text", "text": prompt}
+            ]
+        }]
+    }
+    status, result = call_anthropic(payload)
+    if status != 200:
+        return None
+    try:
+        resp_data = json.loads(result)
+        svg_text = resp_data["content"][0]["text"].strip()
+        # SVG'yi temizle
+        if "<svg" in svg_text:
+            start = svg_text.index("<svg")
+            end = svg_text.rindex("</svg>") + 6
+            svg_text = svg_text[start:end]
+        return svg_text
+    except Exception as e:
+        print("[HATA] SVG parse:", e)
+        return None
+
+
 def handle_analyze_cloth(body):
     print("[DEBUG] analyze-cloth istegi alindi, boyut:", len(body)//1024, "KB")
     try:
@@ -1597,7 +1728,19 @@ JSON formatında döndür (sadece JSON, başka hiçbir şey yazma):
                 parsed["hanger_image"] = hanger_img
                 print("[INFO] Hanger görsel oluşturuldu, boyut:", len(hanger_img)//1024, "KB")
             else:
-                print("[INFO] Hanger görsel oluşturulamadı, SVG kullanılacak.")
+                # rembg yok — Claude ile gerçekçi SVG üret
+                print("[INFO] rembg yok, Claude SVG üretiyor...")
+                cloth_svg = generate_cloth_svg(
+                    parsed.get("label", "Kıyafet"),
+                    category,
+                    parsed.get("tags", []),
+                    image_b64
+                )
+                if cloth_svg:
+                    parsed["cloth_svg"] = cloth_svg
+                    print("[INFO] Claude SVG üretildi, boyut:", len(cloth_svg), "karakter")
+                else:
+                    print("[INFO] SVG üretilemedi, fallback SVG kullanılacak.")
 
             return 200, json.dumps(parsed)
         except Exception as e:

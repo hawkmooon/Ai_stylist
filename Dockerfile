@@ -2,7 +2,7 @@ FROM python:3.11-slim
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir pillow "rembg[cpu]"
+RUN pip install --no-cache-dir pillow
 
 COPY ai_stylist_v2.py .
 COPY hanger.png .

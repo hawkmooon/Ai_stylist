@@ -398,22 +398,11 @@ body{
 /* Kapı animasyonu */
 .wardrobe-door-overlay{
   position:absolute;inset:0;
-  background:
-    repeating-linear-gradient(
-      90deg,
-      transparent, transparent 58px,
-      rgba(255,255,255,.03) 58px, rgba(255,255,255,.03) 60px
-    ),
-    linear-gradient(160deg, #4a3520 0%, #3a2810 40%, #2e2008 80%, #1e1404 100%);
+  background:linear-gradient(160deg, #3a3d3e 0%, #2e3133 40%, #252829 80%, #1e2021 100%);
   z-index:10;transform-origin:left center;
   display:flex;align-items:center;justify-content:flex-end;
   padding-right:24px;
-  cursor:pointer;
-  pointer-events:auto;
-  transition:box-shadow 0.2s;
-}
-.wardrobe-door-overlay:hover .door-handle{
-  filter:brightness(1.2);
+  pointer-events:none;
 }
 .wardrobe-door-overlay::before{
   content:'';
@@ -476,19 +465,6 @@ body{
   display:block;
   margin-top:-8px;
   filter:drop-shadow(0 6px 14px rgba(0,0,0,0.7));
-  border-radius:4px;
-}
-
-/* Gerçek fotoğraf (rembg'siz) — beyaz arka planla kırpılmış görünüm */
-.real-photo-hanger{
-  width:76px;height:86px;
-  object-fit:cover;
-  object-position:center top;
-  display:block;
-  margin-top:-6px;
-  border-radius:6px;
-  box-shadow:0 6px 18px rgba(0,0,0,0.75), 0 2px 4px rgba(0,0,0,0.5);
-  border:1px solid rgba(255,255,255,0.08);
 }
 
 .hanger-svg{
@@ -497,14 +473,6 @@ body{
   filter:drop-shadow(0 5px 12px rgba(0,0,0,0.65));
 }
 .hanger-svg svg{width:100%;height:100%;}
-
-/* Claude tarafından üretilen SVG — daha büyük ve detaylı */
-.ai-generated-svg{
-  width:76px;height:90px;
-  margin-top:-10px;
-  filter:drop-shadow(0 6px 16px rgba(0,0,0,0.75)) drop-shadow(0 2px 4px rgba(0,0,0,0.5));
-}
-.ai-generated-svg svg{width:100%;height:100%;}
 
 .hanger-label{
   font-size:9px;
@@ -709,67 +677,6 @@ body{
 .logout-btn:hover{border-color:var(--wood-plank);color:var(--wood-plank);}
 
 .error-box{background:#fff5f5;border-left:3px solid #c0614e;border-radius:4px;padding:14px;margin-bottom:14px;color:#9b3a2a;font-size:14px;}
-
-/* ── CROPPER MODAL ── */
-#cropper-modal{
-  position:fixed;inset:0;z-index:2000;
-  background:rgba(10,6,2,0.92);
-  display:flex;flex-direction:column;
-  align-items:center;justify-content:flex-start;
-  padding:0;
-}
-.cropper-modal-header{
-  width:100%;display:flex;align-items:center;justify-content:space-between;
-  padding:16px 20px 12px;
-  border-bottom:1px solid rgba(201,168,76,0.25);
-  flex-shrink:0;
-}
-.cropper-modal-title{
-  font-family:'Playfair Display',serif;
-  color:var(--cream);font-size:17px;letter-spacing:1px;
-}
-.cropper-modal-hint{
-  color:rgba(196,168,130,0.6);font-size:11px;
-  letter-spacing:.5px;margin-top:2px;
-}
-.cropper-img-wrap{
-  flex:1;width:100%;overflow:hidden;
-  display:flex;align-items:center;justify-content:center;
-  padding:12px;
-  min-height:0;
-}
-#cropper-img{
-  max-width:100%;max-height:100%;
-  display:block;
-}
-.cropper-actions{
-  width:100%;display:flex;gap:10px;
-  padding:14px 16px 28px;
-  flex-shrink:0;
-}
-.cropper-btn-cancel{
-  flex:1;padding:14px;border-radius:4px;
-  background:transparent;
-  border:1px solid rgba(201,168,76,0.35);
-  color:rgba(196,168,130,0.8);
-  font-family:'Cormorant Garamond',serif;font-size:15px;
-  cursor:pointer;letter-spacing:.5px;transition:all .2s;
-}
-.cropper-btn-cancel:hover{border-color:var(--gold);color:var(--gold);}
-.cropper-btn-confirm{
-  flex:2;padding:14px;border-radius:4px;
-  background:linear-gradient(135deg, var(--gold-light), var(--gold));
-  border:none;
-  color:var(--wood-dark);
-  font-family:'Playfair Display',serif;font-size:15px;font-weight:600;
-  cursor:pointer;letter-spacing:1px;transition:all .2s;
-  box-shadow:0 4px 16px rgba(184,134,11,0.35);
-}
-.cropper-btn-confirm:hover{box-shadow:0 6px 22px rgba(184,134,11,0.5);}
-.cropper-counter{
-  color:rgba(196,168,130,0.5);font-size:11px;
-  text-align:center;margin-bottom:6px;letter-spacing:.5px;
-}
 </style>
 </head>
 <body>
@@ -790,24 +697,6 @@ body{
     Google ile Giriş Yap
   </button>
   <p class="auth-note">Dolabın güvende saklanır ve<br>sadece sen görebilirsin</p>
-</div>
-
-<!-- CROPPER MODAL — body level, her zaman erişilebilir -->
-<div id="cropper-modal" style="display:none;">
-  <div class="cropper-modal-header">
-    <div>
-      <div class="cropper-modal-title">Kıyafeti Kırp</div>
-      <div class="cropper-modal-hint">Sadece kıyafeti seçin, arka planı dışarıda bırakın</div>
-    </div>
-    <div class="cropper-counter" id="cropper-counter"></div>
-  </div>
-  <div class="cropper-img-wrap">
-    <img id="cropper-img" src="">
-  </div>
-  <div class="cropper-actions">
-    <button class="cropper-btn-cancel" id="cropper-cancel-btn">İptal</button>
-    <button class="cropper-btn-confirm" id="cropper-confirm-btn">✓ Onayla ve Ekle</button>
-  </div>
 </div>
 
 <!-- ONBOARD SCREEN -->
@@ -913,11 +802,7 @@ body{
         </svg>
 
         <div class="clothes-layer" id="wardrobe-bg">
-          <div class="wardrobe-door-overlay" id="wardrobe-door" onclick="openWardrobeDoor()">
-            <div style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;pointer-events:none;" id="door-label">
-              <div style="font-size:26px;margin-bottom:6px;">🚪</div>
-              <div style="font-family:'Cormorant Garamond',serif;font-size:13px;letter-spacing:2px;color:rgba(196,168,130,0.75);text-transform:uppercase;">Dolabı Aç</div>
-            </div>
+          <div class="wardrobe-door-overlay" id="wardrobe-door">
             <div class="door-handle"></div>
           </div>
           <div class="clothes-rail" id="clothes-rail">
@@ -929,11 +814,11 @@ body{
         </div>
       </div>
 
-      <label for="fileInput" class="upload-zone" id="upload-zone-btn" onclick="openWardrobeDoor()">
+      <label for="fileInput" class="upload-zone">
         <div class="upload-icon">📷</div>
         <div class="upload-text">Kıyafet fotoğrafı ekle</div>
       </label>
-      <input type="file" id="fileInput" accept="image/*" style="display:none">
+      <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
 
       <div id="upload-loading" style="display:none;" class="loading">
         <div class="spinner"></div>
@@ -1168,29 +1053,6 @@ window.finishOnboard = async () => {
   showToast('👗', 'Dolabına hoş geldin! Kıyafetlerini eklemeye başla.');
 };
 
-// ── WARDROBE DOOR ──
-let wardrobeIsOpen = false;
-
-window.openWardrobeDoor = function(instant) {
-  const door = document.getElementById('wardrobe-door');
-  if (!door || wardrobeIsOpen) return;
-  wardrobeIsOpen = true;
-  if (instant) {
-    door.style.transition = 'none';
-    door.style.display = 'none';
-  } else {
-    door.classList.add('open');
-    setTimeout(() => { door.style.display = 'none'; }, 700);
-  }
-};
-
-window.openWardrobeAndUpload = function() {
-  // Mobilde setTimeout içinden .click() çalışmaz — direkt tetikle
-  document.getElementById('fileInput').click();
-  // Kapıyı da aç (zaten açıksa no-op)
-  openWardrobeDoor();
-};
-
 // ── WARDROBE ──
 async function loadClothes() {
   const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
@@ -1200,10 +1062,6 @@ async function loadClothes() {
   document.getElementById('stat-clothes').textContent = clothes.length;
   document.getElementById('stat-combos').textContent = userDoc.data()?.comboCount || 0;
   document.getElementById('stat-likes').textContent = userDoc.data()?.likeCount || 0;
-  // Kıyafet varsa kapıyı anında (animasyonsuz) aç
-  if (clothes.length > 0) {
-    openWardrobeDoor(true);
-  }
 }
 
 // SVG fallback (rembg yoksa veya hanger_image gelmediyse)
@@ -1351,24 +1209,9 @@ function renderClothes() {
     const hangerSVG = getWireHangerSVG();
 
     if (c.hanger_image) {
-      // rembg ile üretilmiş arka planı silinmiş görsel
       item.innerHTML = `
         ${hangerSVG}
         <img src="data:image/png;base64,${c.hanger_image}" class="real-hanger" alt="${c.label}">
-        <div class="hanger-label">${c.label}</div>
-      `;
-    } else if (c.cloth_svg) {
-      // Claude'un ürettiği gerçekçi SVG
-      item.innerHTML = `
-        ${hangerSVG}
-        <div class="hanger-svg ai-generated-svg">${c.cloth_svg}</div>
-        <div class="hanger-label">${c.label}</div>
-      `;
-    } else if (c.imageData) {
-      // Hiçbir şey yoksa gerçek fotoğrafı direkt kullan
-      item.innerHTML = `
-        ${hangerSVG}
-        <img src="${c.imageData}" class="real-photo-hanger" alt="${c.label}">
         <div class="hanger-label">${c.label}</div>
       `;
     } else {
@@ -1390,173 +1233,88 @@ function updateCounts() {
   document.getElementById('stat-clothes').textContent = clothes.length;
 }
 
-// ── CROPPER ──
-let cropperInstance = null;
-let cropperQueue = [];   // birden fazla dosya seçilince sırayla işle
-let cropperQueueIndex = 0;
-
-window.startCropFlow = function(files) {
-  if (!files || files.length === 0) return;
-  document.getElementById('fileInput').value = '';
-  cropperQueue = Array.from(files);
-  cropperQueueIndex = 0;
-  showCropperForIndex(0);
-};
-
-// fileInput change — direkt analiz, cropper bypass
-document.getElementById('fileInput').addEventListener('change', async function() {
-  if (!this.files || this.files.length === 0) return;
-  const files = Array.from(this.files);
-  this.value = '';
-  for (const file of files) {
+// ── UPLOAD ──
+window.handleClothes = async (files) => {
+  const fileArray = Array.from(files);
+  for (let i = 0; i < fileArray.length; i++) {
+    const file = fileArray[i];
+    document.getElementById('upload-loading').style.display = 'block';
     const reader = new FileReader();
     await new Promise(resolve => {
       reader.onload = async (e) => {
-        await analyzeAndAddCloth(e.target.result);
+        const base64 = await resizeImage(e.target.result, 800);
+        try {
+          const resp = await fetch('/analyze-cloth', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({image: base64})
+          });
+          const data = await resp.json();
+
+          const cloth = {
+            id: Date.now() + Math.random(),
+            imageData: e.target.result,         // Orijinal görsel (detay ekranı için)
+            hanger_image: data.hanger_image || null,  // ← Askılı görsel (yeni!)
+            label: data.label || 'Kıyafet',
+            category: data.category || 'üst',
+            tags: data.tags || [],
+            aiComment: data.comment || '',
+            addedAt: new Date().toISOString()
+          };
+
+          clothes.push(cloth);
+
+          // Dolap kapısı animasyonu
+          const door = document.getElementById('wardrobe-door');
+          if (door) {
+            door.classList.add('open');
+            setTimeout(() => { door.classList.remove('open'); door.style.display='none'; }, 700);
+          }
+
+          renderClothes();
+          updateCounts();
+
+          // Son eklenen kıyafet animasyonu
+          setTimeout(() => {
+            const items = document.querySelectorAll('.hanger-item');
+            const lastItem = items[items.length - 1];
+            if (lastItem) {
+              lastItem.classList.add('cloth-fly-in');
+              setTimeout(() => lastItem.classList.add('hang-swing'), 700);
+            }
+          }, 100);
+
+          // Firestore'a metadata kaydet (görsel hariç)
+          try {
+            const clothMeta = {
+              id: cloth.id, label: cloth.label,
+              tags: cloth.tags, aiComment: cloth.aiComment,
+              category: cloth.category, addedAt: cloth.addedAt
+            };
+            await setDoc(doc(db, 'users', currentUser.uid),
+              {clothesMeta: arrayUnion(clothMeta)}, {merge: true});
+          } catch(fsErr) { console.error("Firestore meta hata:", fsErr.message); }
+
+          const pick = uploadComments[Math.floor(Math.random() * uploadComments.length)];
+          setTimeout(() => showToast(pick[0], data.comment || pick[1]), 500);
+
+          if (i < fileArray.length - 1) await new Promise(r => setTimeout(r, 500));
+
+        } catch(err) { console.error(err); }
         resolve();
       };
       reader.readAsDataURL(file);
     });
   }
-});
-
-document.getElementById('cropper-confirm-btn').addEventListener('click', cropperConfirm);
-document.getElementById('cropper-cancel-btn').addEventListener('click', cropperCancel);
-
-function showCropperForIndex(idx) {
-  if (idx >= cropperQueue.length) return;
-  const file = cropperQueue[idx];
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const modal = document.getElementById('cropper-modal');
-    const img   = document.getElementById('cropper-img');
-    const counter = document.getElementById('cropper-counter');
-
-    // Sayaç (birden fazla fotoğrafta)
-    if (cropperQueue.length > 1) {
-      counter.textContent = `${idx + 1} / ${cropperQueue.length}`;
-    } else {
-      counter.textContent = '';
-    }
-
-    // Eski cropper'ı temizle
-    if (cropperInstance) { cropperInstance.destroy(); cropperInstance = null; }
-
-    img.src = e.target.result;
-    modal.style.display = 'flex';
-
-    // Kısa gecikme — img yüklenmesini bekle
-    setTimeout(() => {
-      cropperInstance = new Cropper(img, {
-        aspectRatio: NaN,        // serbest oran
-        viewMode: 1,             // görüntü kutu dışına çıkamasın
-        dragMode: 'move',
-        autoCropArea: 0.85,      // başlangıçta %85 seçili
-        restore: false,
-        guides: true,
-        center: true,
-        highlight: false,
-        cropBoxMovable: true,
-        cropBoxResizable: true,
-        toggleDragModeOnDblclick: false,
-        background: false,
-      });
-    }, 150);
-  };
-  reader.readAsDataURL(file);
-}
-
-window.cropperConfirm = async function() {
-  if (!cropperInstance) return;
-
-  // Kırpılmış canvas al — max 800px
-  const canvas = cropperInstance.getCroppedCanvas({ maxWidth: 800, maxHeight: 800 });
-  const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-
-  // Modal'ı kapat
-  document.getElementById('cropper-modal').style.display = 'none';
-  if (cropperInstance) { cropperInstance.destroy(); cropperInstance = null; }
-
-  // Analiz et
-  await analyzeAndAddCloth(croppedDataUrl);
-
-  // Sonraki fotoğraf varsa devam et
-  cropperQueueIndex++;
-  if (cropperQueueIndex < cropperQueue.length) {
-    showCropperForIndex(cropperQueueIndex);
-  }
-};
-
-window.cropperCancel = function() {
-  document.getElementById('cropper-modal').style.display = 'none';
-  if (cropperInstance) { cropperInstance.destroy(); cropperInstance = null; }
-  // Kuyruğu temizle
-  cropperQueue = [];
-  cropperQueueIndex = 0;
-};
-
-// ── UPLOAD ──
-// Tek bir kırpılmış görsel al, analiz et, dolaba ekle
-async function analyzeAndAddCloth(croppedDataUrl) {
-  document.getElementById('upload-loading').style.display = 'block';
-  try {
-    const base64 = await resizeImage(croppedDataUrl, 800);
-    const resp = await fetch('/analyze-cloth', {
-      method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({image: base64})
-    });
-    const data = await resp.json();
-
-    const cloth = {
-      id: Date.now() + Math.random(),
-      imageData: croppedDataUrl,
-      hanger_image: data.hanger_image || null,
-      cloth_svg: data.cloth_svg || null,
-      label: data.label || 'Kıyafet',
-      category: data.category || 'üst',
-      tags: data.tags || [],
-      aiComment: data.comment || '',
-      addedAt: new Date().toISOString()
-    };
-
-    clothes.push(cloth);
-
-    if (!wardrobeIsOpen) openWardrobeDoor();
-    renderClothes();
-    updateCounts();
-
-    setTimeout(() => {
-      const items = document.querySelectorAll('.hanger-item');
-      const lastItem = items[items.length - 1];
-      if (lastItem) {
-        lastItem.classList.add('cloth-fly-in');
-        setTimeout(() => lastItem.classList.add('hang-swing'), 700);
-      }
-    }, 100);
-
-    try {
-      const clothMeta = {
-        id: cloth.id, label: cloth.label,
-        tags: cloth.tags, aiComment: cloth.aiComment,
-        category: cloth.category, addedAt: cloth.addedAt
-      };
-      await setDoc(doc(db, 'users', currentUser.uid),
-        {clothesMeta: arrayUnion(clothMeta)}, {merge: true});
-    } catch(fsErr) { console.error("Firestore meta hata:", fsErr.message); }
-
-    const pick = uploadComments[Math.floor(Math.random() * uploadComments.length)];
-    setTimeout(() => showToast(pick[0], data.comment || pick[1]), 500);
-
-  } catch(err) { console.error(err); }
   document.getElementById('upload-loading').style.display = 'none';
-}
-
-window.handleClothes = async (files) => {
-  // Artık kullanılmıyor — startCropFlow üzerinden geliyor
-  // Ama eski referanslar için burada bırakıyoruz
-  startCropFlow(files);
 };
 
+// label for="fileInput" galeriyi açıyor, change eventi burada yakalanıyor
+document.getElementById('fileInput').addEventListener('change', function() {
+  if (this.files && this.files.length > 0) {
+    handleClothes(this.files);
+    this.value = '';
+  }
+});
 
 // ── DETAIL ──
 window.showClothDetail = (index) => {
@@ -1780,60 +1538,6 @@ def call_anthropic(payload):
         print("[HATA] Anthropic genel:", str(e))
         return 500, json.dumps({"error": str(e)})
 
-def generate_cloth_svg(label, category, tags, image_b64):
-    """Claude'a kıyafetin görselini + analizini vererek gerçekçi SVG ürettir."""
-    color_tags = ", ".join(tags[:5]) if tags else "belirsiz renk"
-    prompt = f"""Sana bir kıyafetin fotoğrafını ve analizini veriyorum.
-Bu kıyafeti temsil eden, bir mağaza kataloğuna yakışan GERÇEKÇİ bir SVG çiz.
-
-Kıyafet bilgisi:
-- İsim: {label}
-- Kategori: {category}
-- Özellikler: {color_tags}
-
-SVG kuralları (KESİNLİKLE UYULACAK):
-1. viewBox="0 0 120 150" kullan
-2. SADECE SVG kodu yaz — başka hiçbir şey yazma, açıklama yok
-3. Kıyafeti GERÇEK görünümlü çiz: katmanlar, gölgeler, dikiş detayları, düğmeler, yaka, kol gibi detaylar
-4. Rengi fotoğraftan al — ana rengi doğru kullan
-5. Kıyafet viewBox'ı dolduracak şekilde büyük olsun
-6. Kumaş dokusunu lineerGradient ile simüle et
-7. Detay ekle: yaka çizgisi, kol kıvrımları, düğmeler varsa, cep varsa, dikiş çizgileri
-8. Alt kısmında hafif gölge bırak
-
-Sadece <svg>...</svg> döndür."""
-
-    payload = {
-        "model": "claude-haiku-4-5-20251001",
-        "max_tokens": 1200,
-        "messages": [{
-            "role": "user",
-            "content": [
-                {
-                    "type": "image",
-                    "source": {"type": "base64", "media_type": "image/jpeg", "data": image_b64}
-                },
-                {"type": "text", "text": prompt}
-            ]
-        }]
-    }
-    status, result = call_anthropic(payload)
-    if status != 200:
-        return None
-    try:
-        resp_data = json.loads(result)
-        svg_text = resp_data["content"][0]["text"].strip()
-        # SVG'yi temizle
-        if "<svg" in svg_text:
-            start = svg_text.index("<svg")
-            end = svg_text.rindex("</svg>") + 6
-            svg_text = svg_text[start:end]
-        return svg_text
-    except Exception as e:
-        print("[HATA] SVG parse:", e)
-        return None
-
-
 def handle_analyze_cloth(body):
     print("[DEBUG] analyze-cloth istegi alindi, boyut:", len(body)//1024, "KB")
     try:
@@ -1901,19 +1605,7 @@ JSON formatında döndür (sadece JSON, başka hiçbir şey yazma):
                 parsed["hanger_image"] = hanger_img
                 print("[INFO] Hanger görsel oluşturuldu, boyut:", len(hanger_img)//1024, "KB")
             else:
-                # rembg yok — Claude ile gerçekçi SVG üret
-                print("[INFO] rembg yok, Claude SVG üretiyor...")
-                cloth_svg = generate_cloth_svg(
-                    parsed.get("label", "Kıyafet"),
-                    category,
-                    parsed.get("tags", []),
-                    image_b64
-                )
-                if cloth_svg:
-                    parsed["cloth_svg"] = cloth_svg
-                    print("[INFO] Claude SVG üretildi, boyut:", len(cloth_svg), "karakter")
-                else:
-                    print("[INFO] SVG üretilemedi, fallback SVG kullanılacak.")
+                print("[INFO] Hanger görsel oluşturulamadı, SVG kullanılacak.")
 
             return 200, json.dumps(parsed)
         except Exception as e:

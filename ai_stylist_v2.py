@@ -931,10 +931,10 @@ body{
         </div>
       </div>
 
-      <div class="upload-zone" id="upload-zone-btn">
+      <label for="fileInput" class="upload-zone" id="upload-zone-btn" onclick="openWardrobeDoor()">
         <div class="upload-icon">📷</div>
         <div class="upload-text">Kıyafet fotoğrafı ekle</div>
-      </div>
+      </label>
       <input type="file" id="fileInput" accept="image/*" style="display:none">
 
       <div id="upload-loading" style="display:none;" class="loading">
@@ -1414,10 +1414,6 @@ document.getElementById('fileInput').addEventListener('change', function() {
 
 document.getElementById('cropper-confirm-btn').addEventListener('click', cropperConfirm);
 document.getElementById('cropper-cancel-btn').addEventListener('click', cropperCancel);
-document.getElementById('upload-zone-btn').addEventListener('click', function() {
-  openWardrobeDoor();
-  document.getElementById('fileInput').click();
-});
 
 function showCropperForIndex(idx) {
   if (idx >= cropperQueue.length) return;

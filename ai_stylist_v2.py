@@ -119,6 +119,8 @@ INDEX_HTML = r'''<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dolabim - AI Stylist</title>
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Playfair+Display:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,400&family=Playfair+Display:wght@400;500;600;700&display=swap');
 
@@ -709,6 +711,67 @@ body{
 .logout-btn:hover{border-color:var(--wood-plank);color:var(--wood-plank);}
 
 .error-box{background:#fff5f5;border-left:3px solid #c0614e;border-radius:4px;padding:14px;margin-bottom:14px;color:#9b3a2a;font-size:14px;}
+
+/* ── CROPPER MODAL ── */
+#cropper-modal{
+  position:fixed;inset:0;z-index:2000;
+  background:rgba(10,6,2,0.92);
+  display:flex;flex-direction:column;
+  align-items:center;justify-content:flex-start;
+  padding:0;
+}
+.cropper-modal-header{
+  width:100%;display:flex;align-items:center;justify-content:space-between;
+  padding:16px 20px 12px;
+  border-bottom:1px solid rgba(201,168,76,0.25);
+  flex-shrink:0;
+}
+.cropper-modal-title{
+  font-family:'Playfair Display',serif;
+  color:var(--cream);font-size:17px;letter-spacing:1px;
+}
+.cropper-modal-hint{
+  color:rgba(196,168,130,0.6);font-size:11px;
+  letter-spacing:.5px;margin-top:2px;
+}
+.cropper-img-wrap{
+  flex:1;width:100%;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;
+  padding:12px;
+  min-height:0;
+}
+#cropper-img{
+  max-width:100%;max-height:100%;
+  display:block;
+}
+.cropper-actions{
+  width:100%;display:flex;gap:10px;
+  padding:14px 16px 28px;
+  flex-shrink:0;
+}
+.cropper-btn-cancel{
+  flex:1;padding:14px;border-radius:4px;
+  background:transparent;
+  border:1px solid rgba(201,168,76,0.35);
+  color:rgba(196,168,130,0.8);
+  font-family:'Cormorant Garamond',serif;font-size:15px;
+  cursor:pointer;letter-spacing:.5px;transition:all .2s;
+}
+.cropper-btn-cancel:hover{border-color:var(--gold);color:var(--gold);}
+.cropper-btn-confirm{
+  flex:2;padding:14px;border-radius:4px;
+  background:linear-gradient(135deg, var(--gold-light), var(--gold));
+  border:none;
+  color:var(--wood-dark);
+  font-family:'Playfair Display',serif;font-size:15px;font-weight:600;
+  cursor:pointer;letter-spacing:1px;transition:all .2s;
+  box-shadow:0 4px 16px rgba(184,134,11,0.35);
+}
+.cropper-btn-confirm:hover{box-shadow:0 6px 22px rgba(184,134,11,0.5);}
+.cropper-counter{
+  color:rgba(196,168,130,0.5);font-size:11px;
+  text-align:center;margin-bottom:6px;letter-spacing:.5px;
+}
 </style>
 </head>
 <body>
@@ -716,6 +779,24 @@ body{
 <!-- AUTH SCREEN -->
 <div id="auth-screen">
   <div class="auth-emblem">👗</div>
+
+<!-- CROPPER MODAL -->
+<div id="cropper-modal" style="display:none;">
+  <div class="cropper-modal-header">
+    <div>
+      <div class="cropper-modal-title">Kıyafeti Kırp</div>
+      <div class="cropper-modal-hint">Sadece kıyafeti seçin, arka planı dışarıda bırakın</div>
+    </div>
+    <div class="cropper-counter" id="cropper-counter"></div>
+  </div>
+  <div class="cropper-img-wrap">
+    <img id="cropper-img" src="">
+  </div>
+  <div class="cropper-actions">
+    <button class="cropper-btn-cancel" onclick="cropperCancel()">İptal</button>
+    <button class="cropper-btn-confirm" onclick="cropperConfirm()">✓ Onayla ve Ekle</button>
+  </div>
+</div>
   <div class="auth-logo">Dolabım</div>
   <div class="auth-sub">AI Kişisel Stilist</div>
   <div class="auth-divider"></div>
@@ -854,7 +935,7 @@ body{
         <div class="upload-icon">📷</div>
         <div class="upload-text">Kıyafet fotoğrafı ekle</div>
       </div>
-      <input type="file" id="fileInput" accept="image/*" multiple style="display:none" onchange="handleClothes(this.files)">
+      <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="startCropFlow(this.files)">
 
       <div id="upload-loading" style="display:none;" class="loading">
         <div class="spinner"></div>
@@ -1311,79 +1392,154 @@ function updateCounts() {
   document.getElementById('stat-clothes').textContent = clothes.length;
 }
 
-// ── UPLOAD ──
-window.handleClothes = async (files) => {
-  const fileArray = Array.from(files);
-  for (let i = 0; i < fileArray.length; i++) {
-    const file = fileArray[i];
-    document.getElementById('upload-loading').style.display = 'block';
-    const reader = new FileReader();
-    await new Promise(resolve => {
-      reader.onload = async (e) => {
-        const base64 = await resizeImage(e.target.result, 800);
-        try {
-          const resp = await fetch('/analyze-cloth', {
-            method: 'POST', headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({image: base64})
-          });
-          const data = await resp.json();
+// ── CROPPER ──
+let cropperInstance = null;
+let cropperQueue = [];   // birden fazla dosya seçilince sırayla işle
+let cropperQueueIndex = 0;
 
-          const cloth = {
-            id: Date.now() + Math.random(),
-            imageData: e.target.result,
-            hanger_image: data.hanger_image || null,
-            cloth_svg: data.cloth_svg || null,       // ← Claude'un ürettiği SVG
-            label: data.label || 'Kıyafet',
-            category: data.category || 'üst',
-            tags: data.tags || [],
-            aiComment: data.comment || '',
-            addedAt: new Date().toISOString()
-          };
-
-          clothes.push(cloth);
-
-          // Dolap kapısı animasyonu — ilk kıyafet eklenince aç
-          if (!wardrobeIsOpen) {
-            openWardrobeDoor();
-          }
-
-          renderClothes();
-          updateCounts();
-
-          // Son eklenen kıyafet animasyonu
-          setTimeout(() => {
-            const items = document.querySelectorAll('.hanger-item');
-            const lastItem = items[items.length - 1];
-            if (lastItem) {
-              lastItem.classList.add('cloth-fly-in');
-              setTimeout(() => lastItem.classList.add('hang-swing'), 700);
-            }
-          }, 100);
-
-          // Firestore'a metadata kaydet (görsel hariç)
-          try {
-            const clothMeta = {
-              id: cloth.id, label: cloth.label,
-              tags: cloth.tags, aiComment: cloth.aiComment,
-              category: cloth.category, addedAt: cloth.addedAt
-            };
-            await setDoc(doc(db, 'users', currentUser.uid),
-              {clothesMeta: arrayUnion(clothMeta)}, {merge: true});
-          } catch(fsErr) { console.error("Firestore meta hata:", fsErr.message); }
-
-          const pick = uploadComments[Math.floor(Math.random() * uploadComments.length)];
-          setTimeout(() => showToast(pick[0], data.comment || pick[1]), 500);
-
-          if (i < fileArray.length - 1) await new Promise(r => setTimeout(r, 500));
-
-        } catch(err) { console.error(err); }
-        resolve();
-      };
-      reader.readAsDataURL(file);
-    });
-  }
-  document.getElementById('upload-loading').style.display = 'none';
+window.startCropFlow = function(files) {
+  if (!files || files.length === 0) return;
+  // fileInput'u sıfırla ki aynı dosya tekrar seçilebilsin
+  document.getElementById('fileInput').value = '';
+  cropperQueue = Array.from(files);
+  cropperQueueIndex = 0;
+  showCropperForIndex(0);
 };
+
+function showCropperForIndex(idx) {
+  if (idx >= cropperQueue.length) return;
+  const file = cropperQueue[idx];
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const modal = document.getElementById('cropper-modal');
+    const img   = document.getElementById('cropper-img');
+    const counter = document.getElementById('cropper-counter');
+
+    // Sayaç (birden fazla fotoğrafta)
+    if (cropperQueue.length > 1) {
+      counter.textContent = `${idx + 1} / ${cropperQueue.length}`;
+    } else {
+      counter.textContent = '';
+    }
+
+    // Eski cropper'ı temizle
+    if (cropperInstance) { cropperInstance.destroy(); cropperInstance = null; }
+
+    img.src = e.target.result;
+    modal.style.display = 'flex';
+
+    // Kısa gecikme — img yüklenmesini bekle
+    setTimeout(() => {
+      cropperInstance = new Cropper(img, {
+        aspectRatio: NaN,        // serbest oran
+        viewMode: 1,             // görüntü kutu dışına çıkamasın
+        dragMode: 'move',
+        autoCropArea: 0.85,      // başlangıçta %85 seçili
+        restore: false,
+        guides: true,
+        center: true,
+        highlight: false,
+        cropBoxMovable: true,
+        cropBoxResizable: true,
+        toggleDragModeOnDblclick: false,
+        background: false,
+      });
+    }, 150);
+  };
+  reader.readAsDataURL(file);
+}
+
+window.cropperConfirm = async function() {
+  if (!cropperInstance) return;
+
+  // Kırpılmış canvas al — max 800px
+  const canvas = cropperInstance.getCroppedCanvas({ maxWidth: 800, maxHeight: 800 });
+  const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+  // Modal'ı kapat
+  document.getElementById('cropper-modal').style.display = 'none';
+  if (cropperInstance) { cropperInstance.destroy(); cropperInstance = null; }
+
+  // Analiz et
+  await analyzeAndAddCloth(croppedDataUrl);
+
+  // Sonraki fotoğraf varsa devam et
+  cropperQueueIndex++;
+  if (cropperQueueIndex < cropperQueue.length) {
+    showCropperForIndex(cropperQueueIndex);
+  }
+};
+
+window.cropperCancel = function() {
+  document.getElementById('cropper-modal').style.display = 'none';
+  if (cropperInstance) { cropperInstance.destroy(); cropperInstance = null; }
+  // Kuyruğu temizle
+  cropperQueue = [];
+  cropperQueueIndex = 0;
+};
+
+// ── UPLOAD ──
+// Tek bir kırpılmış görsel al, analiz et, dolaba ekle
+async function analyzeAndAddCloth(croppedDataUrl) {
+  document.getElementById('upload-loading').style.display = 'block';
+  try {
+    const base64 = await resizeImage(croppedDataUrl, 800);
+    const resp = await fetch('/analyze-cloth', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({image: base64})
+    });
+    const data = await resp.json();
+
+    const cloth = {
+      id: Date.now() + Math.random(),
+      imageData: croppedDataUrl,
+      hanger_image: data.hanger_image || null,
+      cloth_svg: data.cloth_svg || null,
+      label: data.label || 'Kıyafet',
+      category: data.category || 'üst',
+      tags: data.tags || [],
+      aiComment: data.comment || '',
+      addedAt: new Date().toISOString()
+    };
+
+    clothes.push(cloth);
+
+    if (!wardrobeIsOpen) openWardrobeDoor();
+    renderClothes();
+    updateCounts();
+
+    setTimeout(() => {
+      const items = document.querySelectorAll('.hanger-item');
+      const lastItem = items[items.length - 1];
+      if (lastItem) {
+        lastItem.classList.add('cloth-fly-in');
+        setTimeout(() => lastItem.classList.add('hang-swing'), 700);
+      }
+    }, 100);
+
+    try {
+      const clothMeta = {
+        id: cloth.id, label: cloth.label,
+        tags: cloth.tags, aiComment: cloth.aiComment,
+        category: cloth.category, addedAt: cloth.addedAt
+      };
+      await setDoc(doc(db, 'users', currentUser.uid),
+        {clothesMeta: arrayUnion(clothMeta)}, {merge: true});
+    } catch(fsErr) { console.error("Firestore meta hata:", fsErr.message); }
+
+    const pick = uploadComments[Math.floor(Math.random() * uploadComments.length)];
+    setTimeout(() => showToast(pick[0], data.comment || pick[1]), 500);
+
+  } catch(err) { console.error(err); }
+  document.getElementById('upload-loading').style.display = 'none';
+}
+
+window.handleClothes = async (files) => {
+  // Artık kullanılmıyor — startCropFlow üzerinden geliyor
+  // Ama eski referanslar için burada bırakıyoruz
+  startCropFlow(files);
+};
+
 
 // ── DETAIL ──
 window.showClothDetail = (index) => {

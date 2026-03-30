@@ -125,11 +125,16 @@ INDEX_HTML = r'''<!DOCTYPE html>
 *{box-sizing:border-box;margin:0;padding:0;}
 
 :root{
-  --wood-dark:#2a1a0e;
-  --wood-mid:#4a2e18;
-  --wood-light:#7a4f2c;
-  --wood-plank:#8b5e35;
-  --wood-grain:#6b4424;
+  --wood-dark:#3d2a14;
+  --wood-mid:#6b4c28;
+  --wood-light:#a07840;
+  --wood-plank:#8b6535;
+  --wood-grain:#c4a06a;
+  --oak-inner:#ede0c4;
+  --oak-panel:#d9c498;
+  --oak-mid:#c8a870;
+  --oak-shelf:#e2d0a8;
+  --oak-frame:#7a5828;
   --gold:#c9a84c;
   --gold-light:#e0c06a;
   --gold-shine:#f5e199;
@@ -139,8 +144,9 @@ INDEX_HTML = r'''<!DOCTYPE html>
   --text-dark:#1e1208;
   --text-mid:#5c3d22;
   --text-light:#9b7a56;
-  --shadow-deep:rgba(15,8,2,0.65);
-  --shadow-mid:rgba(30,16,6,0.4);
+  --shadow-deep:rgba(15,8,2,0.55);
+  --shadow-mid:rgba(30,16,6,0.3);
+  --shadow-soft:rgba(80,50,20,0.12);
 }
 
 body{
@@ -361,19 +367,20 @@ body{
 
 /* Outer frame — the wardrobe cabinet */
 .wardrobe-outer{
-  border-radius:8px;
+  border-radius:6px;
   overflow:hidden;
   margin-bottom:22px;
   position:relative;
+  border:3px solid #7a5828;
   box-shadow:
-    0 20px 60px var(--shadow-deep),
-    0 4px 12px var(--shadow-mid),
-    inset 0 1px 0 rgba(255,255,255,.08);
+    0 16px 50px rgba(60,40,10,.35),
+    0 4px 12px rgba(60,40,10,.2),
+    inset 0 1px 0 rgba(255,255,255,.12);
 }
 
 /* Top crown molding */
 .wardrobe-crown{
-  background:linear-gradient(180deg, #1a0d06 0%, var(--wood-dark) 40%, var(--wood-mid) 100%);
+  background:linear-gradient(180deg, #4a3018 0%, #6b4c28 50%, #7a5828 100%);
   padding:10px 16px 8px;
   display:flex;align-items:center;justify-content:space-between;
   border-bottom:2px solid var(--gold);
@@ -381,7 +388,7 @@ body{
 }
 .wardrobe-crown::after{
   content:'';position:absolute;bottom:-6px;left:0;right:0;height:4px;
-  background:linear-gradient(180deg, rgba(0,0,0,.3), transparent);
+  background:linear-gradient(180deg, rgba(0,0,0,.2), transparent);
 }
 
 .crown-ornament{
@@ -402,20 +409,29 @@ body{
   position:relative;
   min-height:220px;
   overflow:hidden;
-  /* Wood texture via gradients */
+  /* Oak interior — warm light wood planks with vertical grain lines */
   background:
     repeating-linear-gradient(
       90deg,
-      transparent, transparent 55px,
-      rgba(0,0,0,.04) 55px, rgba(0,0,0,.04) 57px
+      transparent, transparent 52px,
+      rgba(100,65,20,.07) 52px, rgba(100,65,20,.07) 54px
     ),
     repeating-linear-gradient(
       180deg,
-      transparent, transparent 3px,
-      rgba(255,255,255,.012) 3px, rgba(255,255,255,.012) 4px
+      transparent, transparent 8px,
+      rgba(255,255,255,.04) 8px, rgba(255,255,255,.04) 9px
     ),
-    linear-gradient(180deg, #3a2210 0%, #4e2f18 25%, #5c3820 50%, #4a2c16 75%, #3a2010 100%);
+    linear-gradient(180deg,
+      #c8a870 0%,
+      #d4b880 15%,
+      #e0c890 35%,
+      #d8be88 55%,
+      #cdb078 75%,
+      #c0a068 100%
+    );
   padding:0 14px 14px;
+  /* Inner shadow for depth */
+  box-shadow:inset 4px 0 16px rgba(80,50,10,.2), inset -4px 0 16px rgba(80,50,10,.2), inset 0 20px 30px rgba(50,30,5,.15);
 }
 
 /* Door overlay for animation */
@@ -424,10 +440,16 @@ body{
   background:
     repeating-linear-gradient(
       88deg,
-      transparent, transparent 50px,
-      rgba(0,0,0,.06) 50px, rgba(0,0,0,.06) 52px
+      transparent, transparent 48px,
+      rgba(60,35,10,.08) 48px, rgba(60,35,10,.08) 50px
     ),
-    linear-gradient(135deg, #4a2e18 0%, #5c3820 30%, #3d2210 60%, #2e1a0c 100%);
+    linear-gradient(160deg,
+      #7a5828 0%,
+      #8b6535 25%,
+      #6b4c28 55%,
+      #5a3e20 80%,
+      #4a3018 100%
+    );
   z-index:10;transform-origin:left center;
   display:flex;align-items:center;justify-content:center;
   pointer-events:none;
@@ -436,10 +458,10 @@ body{
 /* Raised panel on door */
 .wardrobe-door-overlay::before{
   content:'';
-  position:absolute;top:16px;right:16px;bottom:16px;left:16px;
-  border:2px solid rgba(255,255,255,.06);
-  border-radius:3px;
-  box-shadow:inset 0 0 20px rgba(0,0,0,.3), 0 0 0 1px rgba(0,0,0,.4);
+  position:absolute;top:14px;right:14px;bottom:14px;left:14px;
+  border:2px solid rgba(255,255,255,.10);
+  border-radius:2px;
+  box-shadow:inset 0 0 16px rgba(0,0,0,.2), 0 0 0 1px rgba(0,0,0,.25);
 }
 
 .wardrobe-door-overlay.open{animation:doorSwing 0.7s cubic-bezier(.4,0,.2,1) forwards;}
@@ -542,17 +564,17 @@ body{
 .hanger-svg svg{width:100%;height:100%;}
 
 .hanger-label{
-  font-size:9px;color:rgba(232,213,176,.75);
+  font-size:9px;color:rgba(60,35,10,.7);
   margin-top:5px;line-height:1.3;
   max-width:82px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
-  letter-spacing:.3px;
+  letter-spacing:.3px;font-weight:500;
   transition:color .2s;
 }
 
 /* Wardrobe floor */
 .wardrobe-floor{
-  height:14px;
-  background:linear-gradient(180deg, var(--wood-dark), #120a04);
+  height:16px;
+  background:linear-gradient(180deg, #7a5828, #5a3e20);
   position:relative;
 }
 .wardrobe-floor::before{
@@ -563,7 +585,7 @@ body{
 /* Empty state */
 .wardrobe-empty{
   width:100%;text-align:center;padding:40px 20px;
-  color:rgba(196,168,130,.5);font-style:italic;font-size:15px;
+  color:rgba(90,62,30,.45);font-style:italic;font-size:15px;
   line-height:1.8;
 }
 

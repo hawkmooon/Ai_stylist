@@ -807,8 +807,8 @@ body{
     <img id="cropper-img" src="">
   </div>
   <div class="cropper-actions">
-    <button class="cropper-btn-cancel" onclick="cropperCancel()">İptal</button>
-    <button class="cropper-btn-confirm" onclick="cropperConfirm()">✓ Onayla ve Ekle</button>
+    <button class="cropper-btn-cancel" id="cropper-cancel-btn">İptal</button>
+    <button class="cropper-btn-confirm" id="cropper-confirm-btn">✓ Onayla ve Ekle</button>
   </div>
 </div>
 
@@ -931,11 +931,11 @@ body{
         </div>
       </div>
 
-      <div class="upload-zone" onclick="openWardrobeAndUpload()">
+      <div class="upload-zone" id="upload-zone-btn">
         <div class="upload-icon">📷</div>
         <div class="upload-text">Kıyafet fotoğrafı ekle</div>
       </div>
-      <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="startCropFlow(this.files)">
+      <input type="file" id="fileInput" accept="image/*" style="display:none">
 
       <div id="upload-loading" style="display:none;" class="loading">
         <div class="spinner"></div>
@@ -1399,12 +1399,25 @@ let cropperQueueIndex = 0;
 
 window.startCropFlow = function(files) {
   if (!files || files.length === 0) return;
-  // fileInput'u sıfırla ki aynı dosya tekrar seçilebilsin
   document.getElementById('fileInput').value = '';
   cropperQueue = Array.from(files);
   cropperQueueIndex = 0;
   showCropperForIndex(0);
 };
+
+// fileInput change — module scope'tan dinle
+document.getElementById('fileInput').addEventListener('change', function() {
+  if (this.files && this.files.length > 0) {
+    startCropFlow(this.files);
+  }
+});
+
+document.getElementById('cropper-confirm-btn').addEventListener('click', cropperConfirm);
+document.getElementById('cropper-cancel-btn').addEventListener('click', cropperCancel);
+document.getElementById('upload-zone-btn').addEventListener('click', function() {
+  openWardrobeDoor();
+  document.getElementById('fileInput').click();
+});
 
 function showCropperForIndex(idx) {
   if (idx >= cropperQueue.length) return;

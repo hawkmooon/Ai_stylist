@@ -103,6 +103,175 @@ def process_cloth_with_hanger(image_b64, category="üst"):
         return None
 
 
+AVATAR_HTML = r'''<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dolabım - Avatar Oluştur</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: linear-gradient(160deg, #1a1208 0%, #2a1f0e 50%, #1a1208 100%);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-family: 'Georgia', serif;
+  color: #e8d5b7;
+}
+.header {
+  width: 100%;
+  padding: 16px 20px;
+  text-align: center;
+  border-bottom: 1px solid #c9a84c33;
+  background: linear-gradient(180deg, #2a1f0e, #1a1208);
+}
+.header h1 { font-size: 1.4rem; letter-spacing: 6px; color: #c9a84c; text-shadow: 0 0 20px #c9a84c44; font-weight: 400; }
+.header p { font-size: 0.6rem; letter-spacing: 4px; color: #c9a84c66; text-transform: uppercase; margin-top: 3px; }
+#step-screen {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 32px 20px; text-align: center; flex: 1; width: 100%;
+}
+.step-icon {
+  width: 80px; height: 80px; border-radius: 50%;
+  background: radial-gradient(circle, #c9a84c33, #c9a84c11);
+  border: 1px solid #c9a84c44;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2rem; margin-bottom: 20px; box-shadow: 0 0 30px #c9a84c22;
+}
+.step-title { font-size: 1.2rem; color: #e8d5b7; letter-spacing: 2px; margin-bottom: 8px; }
+.step-desc { font-size: 0.75rem; color: #e8d5b766; letter-spacing: 1px; line-height: 1.8; max-width: 280px; margin-bottom: 28px; }
+.btn-gold {
+  background: linear-gradient(135deg, #c9a84c, #e0c06a);
+  color: #1a1208; border: none; padding: 14px 36px;
+  font-size: 0.75rem; letter-spacing: 4px; text-transform: uppercase;
+  cursor: pointer; border-radius: 2px; font-family: 'Georgia', serif;
+  box-shadow: 0 4px 20px #c9a84c44; transition: all 0.3s; font-weight: bold;
+}
+.btn-gold:hover { background: linear-gradient(135deg, #e0c06a, #f5d988); transform: translateY(-1px); }
+#creator-screen { display: none; flex-direction: column; align-items: center; width: 100%; flex: 1; }
+.creator-info { padding: 10px 16px; font-size: 0.62rem; color: #c9a84c88; letter-spacing: 2px; text-transform: uppercase; text-align: center; }
+#rpm-frame { width: 100%; flex: 1; border: none; min-height: 540px; }
+#result-screen { display: none; flex-direction: column; align-items: center; padding: 24px 20px; width: 100%; flex: 1; }
+.success-badge {
+  background: linear-gradient(135deg, #c9a84c22, #c9a84c11);
+  border: 1px solid #c9a84c44; padding: 8px 20px;
+  font-size: 0.62rem; letter-spacing: 4px; text-transform: uppercase;
+  color: #c9a84c; margin-bottom: 20px; border-radius: 2px;
+}
+#avatar-viewer {
+  width: 100%; max-width: 340px; height: 460px;
+  border: 1px solid #c9a84c22; border-radius: 4px;
+  background: #0a0604; margin-bottom: 20px; position: relative; overflow: hidden;
+}
+#avatar-viewer iframe { width: 100%; height: 100%; border: none; }
+.avatar-loading {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  flex-direction: column; gap: 12px; color: #c9a84c88; font-size: 0.7rem; letter-spacing: 3px;
+}
+.spin {
+  width: 32px; height: 32px; border: 2px solid #c9a84c22;
+  border-top-color: #c9a84c; border-radius: 50%; animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.action-row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; margin-bottom: 16px; }
+.btn-outline {
+  background: transparent; border: 1px solid #c9a84c44; color: #c9a84c88;
+  padding: 10px 24px; font-size: 0.65rem; letter-spacing: 3px; text-transform: uppercase;
+  cursor: pointer; border-radius: 2px; font-family: 'Georgia', serif; transition: all 0.3s;
+}
+.btn-outline:hover { border-color: #c9a84c; color: #c9a84c; background: #c9a84c11; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>Dolabım</h1>
+  <p>Avatar Oluşturucu</p>
+</div>
+
+<div id="step-screen">
+  <div class="step-icon">🧍</div>
+  <div class="step-title">Kendi Avatarını Oluştur</div>
+  <div class="step-desc">
+    Selfie çek veya özelliklerini seç,<br>
+    3D avatarın otomatik oluşsun.<br>
+    Kıyafetlerini üstüne giydirelim.
+  </div>
+  <button class="btn-gold" onclick="startCreator()">Avatar Oluştur</button>
+</div>
+
+<div id="creator-screen">
+  <div class="creator-info">Selfie çek veya manuel özelleştir → Bitti'ye bas</div>
+  <iframe
+    id="rpm-frame"
+    src="https://demo.readyplayer.me/avatar?frameApi"
+    allow="camera *; microphone *"
+    allowfullscreen
+  ></iframe>
+</div>
+
+<div id="result-screen">
+  <div class="success-badge">✓ Avatar Hazır</div>
+  <div id="avatar-viewer">
+    <div class="avatar-loading" id="av-loading">
+      <div class="spin"></div>
+      <span>Avatar Yükleniyor</span>
+    </div>
+    <iframe id="av-frame" style="display:none"></iframe>
+  </div>
+  <div class="action-row">
+    <button class="btn-gold" onclick="goToWardrobe()">Dolaba Geç →</button>
+    <button class="btn-outline" onclick="resetAvatar()">Yeniden Oluştur</button>
+  </div>
+</div>
+
+<script>
+let avatarUrl = null;
+function startCreator() {
+  document.getElementById('step-screen').style.display = 'none';
+  document.getElementById('creator-screen').style.display = 'flex';
+}
+window.addEventListener('message', (event) => {
+  const json = parse(event);
+  if (json?.source !== 'readyplayerme') return;
+  if (json.eventName === 'v1.avatar.exported') {
+    avatarUrl = json.data.url;
+    showResult(avatarUrl);
+  }
+});
+function parse(event) {
+  try { return JSON.parse(event.data); } catch { return null; }
+}
+function showResult(url) {
+  document.getElementById('creator-screen').style.display = 'none';
+  document.getElementById('result-screen').style.display = 'flex';
+  const frame = document.getElementById('av-frame');
+  frame.src = 'https://readyplayer.me/avatar-viewer?url=' + encodeURIComponent(url);
+  frame.onload = () => {
+    document.getElementById('av-loading').style.display = 'none';
+    frame.style.display = 'block';
+  };
+}
+function goToWardrobe() {
+  if (avatarUrl) {
+    localStorage.setItem('dolabim_avatar', avatarUrl);
+    window.location.href = '/';
+  }
+}
+function resetAvatar() {
+  avatarUrl = null;
+  document.getElementById('result-screen').style.display = 'none';
+  document.getElementById('av-loading').style.display = 'flex';
+  document.getElementById('av-frame').style.display = 'none';
+  document.getElementById('av-frame').src = '';
+  startCreator();
+}
+</script>
+</body>
+</html>'''
+
 FIREBASE_CONFIG = {
     "apiKey": "AIzaSyBeE62ZcocMTDNIfeKFyfDDNr_evWon_9w",
     "authDomain": "ai-stylist-94c04.firebaseapp.com",
@@ -814,11 +983,11 @@ body{
         </div>
       </div>
 
-      <label for="fileInput" class="upload-zone">
+      <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
         <div class="upload-icon">📷</div>
         <div class="upload-text">Kıyafet fotoğrafı ekle</div>
-      </label>
-      <input type="file" id="fileInput" accept="image/*" multiple style="display:none">
+      </div>
+      <input type="file" id="fileInput" accept="image/*" multiple style="display:none" onchange="handleClothes(this.files)">
 
       <div id="upload-loading" style="display:none;" class="loading">
         <div class="spinner"></div>
@@ -1308,14 +1477,6 @@ window.handleClothes = async (files) => {
   document.getElementById('upload-loading').style.display = 'none';
 };
 
-// label for="fileInput" galeriyi açıyor, change eventi burada yakalanıyor
-document.getElementById('fileInput').addEventListener('change', function() {
-  if (this.files && this.files.length > 0) {
-    handleClothes(this.files);
-    this.value = '';
-  }
-});
-
 // ── DETAIL ──
 window.showClothDetail = (index) => {
   currentDetailIndex = index;
@@ -1677,6 +1838,8 @@ def handle_client(conn, addr):
             send_response(conn, 200, "text/html; charset=utf-8", INDEX_HTML)
         elif method == "GET" and path == "/health":
             send_response(conn, 200, "application/json", '{"status":"ok"}')
+        elif method == "GET" and path == "/avatar":
+            send_response(conn, 200, "text/html; charset=utf-8", AVATAR_HTML)
         elif method == "POST" and path == "/suggest":
             status, result = handle_suggest(body)
             send_response(conn, status, "application/json", result)

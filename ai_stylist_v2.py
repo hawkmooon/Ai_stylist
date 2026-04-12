@@ -1779,6 +1779,10 @@ def handle_tryon(body):
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
             run_data = json.loads(resp.read().decode())
+    except urllib.error.HTTPError as e:
+        body = e.read().decode()
+        print(f"[FASHN HATA] HTTP {e.code}: {body}")
+        return 500, json.dumps({"error": f"FASHN run hatası: HTTP {e.code}: {body}"})
     except Exception as e:
         print("[FASHN HATA] run:", e)
         return 500, json.dumps({"error": f"FASHN run hatası: {str(e)}"})

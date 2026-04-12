@@ -1283,7 +1283,6 @@ window.startTryOn = async () => {
   document.getElementById('tryon-loading').style.display = 'block';
   document.getElementById('tryon-result').style.display = 'none';
 
-  // Kıyafet görselini base64'e çevir
   let garmentB64 = '';
   if (cloth.imageData) {
     garmentB64 = await resizeImage(cloth.imageData, 768);
@@ -1294,24 +1293,55 @@ window.startTryOn = async () => {
     return;
   }
 
+  const catMap = {'üst':'tops','alt':'bottoms','ayak':'tops','aksesuar':'tops','iç':'tops'};
+  const fashnCat = catMap[cloth.category] || 'tops';
+  const FASHN_KEY = '__FASHN_API_KEY__';
+
   try {
-    const resp = await fetch('/tryon', {
+    const runResp = await fetch('https://api.fashn.ai/v1/run', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + FASHN_KEY},
       body: JSON.stringify({
-        person_image: tryOnPersonB64,
-        garment_image: garmentB64,
-        category: cloth.category || 'üst'
+        model_name: 'tryon-v1.6',
+        inputs: {
+          model_image: 'data:image/jpeg;base64,' + tryOnPersonB64,
+          garment_image: 'data:image/jpeg;base64,' + garmentB64,
+          category: fashnCat,
+          return_base64: true
+        }
       })
     });
-    const data = await resp.json();
-    if (data.result_image) {
-      document.getElementById('tryon-result-img').src = `data:image/png;base64,${data.result_image}`;
-      document.getElementById('tryon-result').style.display = 'block';
-      showToast('✨', 'İşte bu! Çok yakıştı!');
-    } else {
-      showToast('❌', data.error || 'Try-on başarısız oldu.');
+    const runData = await runResp.json();
+    if (!runData.id) {
+      showToast('❌', 'FASHN job başlatılamadı: ' + JSON.stringify(runData));
+      document.getElementById('tryon-loading').style.display = 'none';
+      document.getElementById('tryon-start-btn').disabled = false;
+      return;
     }
+    const predId = runData.id;
+    for (let i = 0; i < 30; i++) {
+      await new Promise(r => setTimeout(r, 2000));
+      const pollResp = await fetch('https://api.fashn.ai/v1/status/' + predId, {
+        headers: {'Authorization': 'Bearer ' + FASHN_KEY}
+      });
+      const pollData = await pollResp.json();
+      if (pollData.status === 'completed' && pollData.output?.length) {
+        let b64 = pollData.output[0];
+        if (b64.includes(',')) b64 = b64.split(',')[1];
+        document.getElementById('tryon-result-img').src = 'data:image/png;base64,' + b64;
+        document.getElementById('tryon-result').style.display = 'block';
+        showToast('✨', 'İşte bu! Çok yakıştı!');
+        document.getElementById('tryon-loading').style.display = 'none';
+        document.getElementById('tryon-start-btn').disabled = false;
+        return;
+      } else if (pollData.status === 'failed' || pollData.status === 'error') {
+        showToast('❌', 'Try-on başarısız: ' + (pollData.error?.message || JSON.stringify(pollData.error)));
+        document.getElementById('tryon-loading').style.display = 'none';
+        document.getElementById('tryon-start-btn').disabled = false;
+        return;
+      }
+    }
+    showToast('❌', 'Try-on zaman aşımı (60s)');
   } catch(e) {
     showToast('❌', 'Bağlantı hatası: ' + e.message);
   }
@@ -1838,7 +1868,8 @@ def handle_client(conn, addr):
         if method == "OPTIONS":
             send_response(conn, 200, "text/plain", "")
         elif method == "GET" and (path == "/" or path == "/index.html"):
-            send_response(conn, 200, "text/html; charset=utf-8", INDEX_HTML)
+            html = INDEX_HTML.replace("__FASHN_API_KEY__", FASHN_API_KEY)
+            send_response(conn, 200, "text/html; charset=utf-8", html)
         elif method == "GET" and path == "/health":
             send_response(conn, 200, "application/json", '{"status":"ok"}')
         elif method == "GET" and path == "/avatar":

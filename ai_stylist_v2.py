@@ -8,8 +8,9 @@ import threading
 import base64
 import io
 
-API_KEY = os.environ.get("ANTHROPIC_API_KEY", "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")
+API_KEY = os.environ.get("ANTHROPIC_API_KEY", "")
 FASHN_API_KEY = os.environ.get("FASHN_API_KEY", "")
+REMOVE_BG_API_KEY = os.environ.get("REMOVE_BG_API_KEY", "")
 PORT = int(os.environ.get("PORT", 8765))
 MAX_TOKENS_LIMIT = 2000
 
@@ -1186,9 +1187,13 @@ window.handleClothes = async (files) => {
         try {
           const resp = await fetch('/analyze-cloth', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({image:base64}) });
           const data = await resp.json();
+          // remove.bg arka plan silindiyse onu kullan, yoksa orijinal
+          const displayImage = data.bg_removed_image
+            ? 'data:image/png;base64,' + data.bg_removed_image
+            : e.target.result;
           const cloth = {
             id: Date.now() + Math.random(),
-            imageData: e.target.result,
+            imageData: displayImage,
             hanger_image: data.hanger_image || null,
             label: data.label || 'Kıyafet',
             category: data.category || 'üst',
@@ -1652,12 +1657,50 @@ def call_anthropic(payload):
         print("[HATA] Anthropic genel:", str(e))
         return 500, json.dumps({"error": str(e)})
 
+
+def remove_background(image_b64):
+    """Remove.bg API ile arka plan siler, base64 PNG döndürür."""
+    if not REMOVE_BG_API_KEY:
+        print("[WARN] REMOVE_BG_API_KEY yok, orijinal görsel kullanılacak.")
+        return image_b64
+    try:
+        img_bytes = base64.b64decode(image_b64)
+        boundary = b"----FormBoundary7MA4YWxkTrZu0gW"
+        body = (b"--" + boundary + b"\r\n"
+                b"Content-Disposition: form-data; name=\"image_file\"; filename=\"cloth.jpg\"\r\n"
+                b"Content-Type: image/jpeg\r\n\r\n" +
+                img_bytes + b"\r\n"
+                b"--" + boundary + b"\r\n"
+                b"Content-Disposition: form-data; name=\"size\"\r\n\r\nauto\r\n"
+                b"--" + boundary + b"--\r\n")
+        req = urllib.request.Request(
+            "https://api.remove.bg/v1.0/removebg",
+            data=body,
+            headers={
+                "X-Api-Key": REMOVE_BG_API_KEY,
+                "Content-Type": "multipart/form-data; boundary=----FormBoundary7MA4YWxkTrZu0gW"
+            },
+            method="POST"
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            result_bytes = resp.read()
+            result_b64 = base64.b64encode(result_bytes).decode()
+            print("[INFO] remove.bg başarılı, boyut:", len(result_b64)//1024, "KB")
+            return result_b64
+    except Exception as e:
+        print("[HATA] remove.bg:", e)
+        return image_b64
+
 def handle_analyze_cloth(body):
     print("[DEBUG] analyze-cloth istegi alindi, boyut:", len(body)//1024, "KB")
     try:
         data = json.loads(body)
         image_b64 = data.get("image", "")
         print("[DEBUG] Image b64 boyut:", len(image_b64)//1024, "KB")
+        # Remove.bg ile arka plan sil
+        image_b64 = remove_background(image_b64)
+        # remove.bg PNG döndürür, Anthropic için media_type güncelle
+        media_type = "image/png" if REMOVE_BG_API_KEY else "image/jpeg"
     except Exception as e:
         print("[HATA] JSON parse:", e)
         return 400, json.dumps({"error": "Invalid JSON"})
@@ -1668,7 +1711,7 @@ def handle_analyze_cloth(body):
         "messages": [{
             "role": "user",
             "content": [
-                {"type":"image","source":{"type":"base64","media_type":"image/jpeg","data":image_b64}},
+                {"type":"image","source":{"type":"base64","media_type":media_type,"data":image_b64}},
                 {"type":"text","text":"""Bu kıyafeti çok dikkatli analiz et.
 
 ÖNEMLİ: Önce kıyafetin tam olarak ne olduğunu belirle:
@@ -1710,6 +1753,9 @@ JSON formatında döndür (sadece JSON, başka hiçbir şey yazma):
                 print("[INFO] Hanger görsel oluşturuldu, boyut:", len(hanger_img)//1024, "KB")
             else:
                 print("[INFO] Hanger görsel oluşturulamadı, SVG kullanılacak.")
+            # remove.bg ile arka plan silindiyse frontend'e gönder
+            if REMOVE_BG_API_KEY:
+                parsed["bg_removed_image"] = image_b64
             return 200, json.dumps(parsed)
         except Exception as e:
             print("[HATA] analyze parse:", e, "| result:", result[:200])
@@ -1730,7 +1776,7 @@ def handle_analyze_body(body):
         "messages": [{
             "role": "user",
             "content": [
-                {"type":"image","source":{"type":"base64","media_type":"image/jpeg","data":image_b64}},
+                {"type":"image","source":{"type":"base64","media_type":media_type,"data":image_b64}},
                 {"type":"text","text":"""Bu kişinin vücut tipini analiz et. Kombin önerilerinde kullanılacak.
 HTML formatında, her özellik için <div class="analysis-item"><span class="analysis-label">Özellik</span><span class="analysis-value">Değer</span></div> şeklinde döndür:
 - Vücut tipi (elma, armut, kum saati, dikdörtgen vb)

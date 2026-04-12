@@ -928,7 +928,7 @@ body{background:var(--cream);font-family:'Cormorant Garamond',Georgia,serif;colo
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as fbSignOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut as fbSignOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, updateDoc, arrayUnion, increment } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -991,10 +991,18 @@ function resizeImage(dataUrl, maxPx) {
 }
 
 // ── AUTH ──
+getRedirectResult(auth).catch(() => {});
+
 window.signInWithGoogle = async () => {
   const provider = new GoogleAuthProvider();
-  try { await signInWithPopup(auth, provider); }
-  catch(e) { alert('Giriş başarısız: ' + e.message); }
+  const isCapacitor = window.Capacitor !== undefined;
+  try {
+    if (isCapacitor) {
+      await signInWithRedirect(auth, provider);
+    } else {
+      await signInWithPopup(auth, provider);
+    }
+  } catch(e) { alert('Giriş başarısız: ' + e.message); }
 };
 window.signOut = async () => { await fbSignOut(auth); };
 

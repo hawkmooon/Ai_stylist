@@ -928,7 +928,7 @@ body{background:var(--cream);font-family:'Cormorant Garamond',Georgia,serif;colo
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut as fbSignOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithCredential, signOut as fbSignOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
 import { getFirestore, doc, getDoc, setDoc, updateDoc, arrayUnion, increment } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
 const firebaseConfig = {
@@ -991,15 +991,19 @@ function resizeImage(dataUrl, maxPx) {
 }
 
 // ── AUTH ──
-getRedirectResult(auth).catch(() => {});
-
 window.signInWithGoogle = async () => {
-  const provider = new GoogleAuthProvider();
-  const isCapacitor = window.Capacitor !== undefined;
   try {
-    if (isCapacitor) {
-      await signInWithRedirect(auth, provider);
+    if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+      const { GoogleAuth } = await import('https://cdn.jsdelivr.net/npm/@codetrix-studio/capacitor-google-auth/dist/esm/index.js');
+      await GoogleAuth.initialize({
+        clientId: '360910240515-n6altp0av06bvj56ts2oasuk5m8pu85b.apps.googleusercontent.com',
+        scopes: ['profile', 'email'],
+      });
+      const googleUser = await GoogleAuth.signIn();
+      const credential = GoogleAuthProvider.credential(googleUser.authentication.idToken);
+      await signInWithCredential(auth, credential);
     } else {
+      const provider = new GoogleAuthProvider();
       await signInWithPopup(auth, provider);
     }
   } catch(e) { alert('Giriş başarısız: ' + e.message); }
